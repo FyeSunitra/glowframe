@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/admin/shared/StatusBadge'
 import { TransactionHistory } from '@/components/features/wallet/TransactionHistory'
 import { money } from '@/lib/utils'
 import type { WalletTransaction } from '@/types'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface DashboardBooking {
   id: number
@@ -27,20 +29,8 @@ interface DashboardData {
   recentTransactions: WalletTransaction[]
 }
 
-const BOOKING_COLS_MINI = [
-  { key: 'bookingNo', header: 'Booking #', render: (row: DashboardBooking) => (
-    <span className="font-[var(--font-poppins)] font-semibold text-[13px]">{row.bookingNo}</span>
-  )},
-  { key: 'camera', header: 'Camera', render: (row: DashboardBooking) => row.camera },
-  { key: 'renter', header: 'Renter', render: (row: DashboardBooking) => row.renter },
-  { key: 'rentalDate', header: 'Dates', render: (row: DashboardBooking) => (
-    <span className="text-[13px] text-gf-muted">{row.rentalDate}</span>
-  )},
-  { key: 'total', header: 'Total', render: (row: DashboardBooking) => `${money(row.total)} THB` },
-  { key: 'status', header: 'Status', render: (row: DashboardBooking) => <StatusBadge status={row.status} /> },
-]
-
 export default function DashboardPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminDashboard')
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['admin', 'stats'],
     queryFn: () => axios.get('/api/admin/stats').then(r => r.data.data),
@@ -49,29 +39,41 @@ export default function DashboardPage() {
   const stats = data?.stats ?? { users: 0, listings: 0, bookings: 0, revenue: 0 }
   const recentBookings = data?.recentBookings ?? []
   const recentTransactions = data?.recentTransactions ?? []
+  const bookingColumns = [
+    { key: 'bookingNo', header: t.bookingNo, render: (row: DashboardBooking) => (
+      <span className="font-[var(--font-poppins)] font-semibold text-[13px]">{row.bookingNo}</span>
+    )},
+    { key: 'camera', header: t.camera, render: (row: DashboardBooking) => row.camera },
+    { key: 'renter', header: t.renter, render: (row: DashboardBooking) => row.renter },
+    { key: 'rentalDate', header: t.dates, render: (row: DashboardBooking) => (
+      <span className="text-[13px] text-gf-muted">{row.rentalDate}</span>
+    )},
+    { key: 'total', header: t.total, render: (row: DashboardBooking) => `${money(row.total)} THB` },
+    { key: 'status', header: t.status, render: (row: DashboardBooking) => <StatusBadge status={row.status} /> },
+  ]
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Dashboard']} title="Dashboard" />
+      <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
 
       <div className="mb-[22px] grid grid-cols-4 gap-[22px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <StatCard icon={Users} label="Total Users" value={isLoading ? '' : stats.users} />
-        <StatCard icon={Camera} label="Active Listings" value={isLoading ? '' : stats.listings} />
-        <StatCard icon={CalendarCheck} label="Bookings This Month" value={isLoading ? '' : stats.bookings} />
-        <StatCard icon={DollarSign} label="Revenue This Month" value={isLoading ? '' : `${money(stats.revenue)} THB`} />
+        <StatCard icon={Users} label={t.totalUsers} value={isLoading ? '' : stats.users} />
+        <StatCard icon={Camera} label={t.activeListings} value={isLoading ? '' : stats.listings} />
+        <StatCard icon={CalendarCheck} label={t.monthlyBookings} value={isLoading ? '' : stats.bookings} />
+        <StatCard icon={DollarSign} label={t.monthlyRevenue} value={isLoading ? '' : `${money(stats.revenue)} THB`} />
       </div>
 
       <div className="mb-[22px] grid grid-cols-2 gap-[22px] max-[900px]:grid-cols-1">
         <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] [padding:28px]">
           <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">
-            Recent Bookings
+            {t.recentBookings}
           </div>
-          <DataTable columns={BOOKING_COLS_MINI} data={recentBookings} loading={isLoading} />
+          <DataTable columns={bookingColumns} data={recentBookings} loading={isLoading} />
         </div>
 
         <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] [padding:28px]">
           <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">
-            Recent Transactions
+            {t.recentTransactions}
           </div>
           <TransactionHistory items={recentTransactions} />
         </div>

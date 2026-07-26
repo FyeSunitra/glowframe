@@ -1,14 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import {
+  BadgeCheck,
+  Camera,
+  MapPin,
+  PackageCheck,
+  Play,
+  ShieldCheck,
+  Star,
+} from 'lucide-react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { CameraGlyph } from '@/components/common/CameraGlyph';
 import type { Product } from '@/types';
 import { cn } from '@/lib/utils';
+import { getPageText } from '@/lib/menuI18n';
+import { useAppStore } from '@/store/appStore';
 
 async function fetchProduct(id: string): Promise<Product> {
   const { data } = await axios.get(`/api/products/${id}`);
@@ -16,81 +28,270 @@ async function fetchProduct(id: string): Promise<Product> {
 }
 
 export default function ProductDetailPage() {
+  const locale = useAppStore((state) => state.locale);
+  const t = getPageText(locale, 'catalog');
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<'detail' | 'policy'>('detail');
+  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
 
-  const { data: product, isLoading } = useQuery({
+  const {
+    data: product,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['product', id],
     queryFn: () => fetchProduct(id),
-    enabled: !!id,
+    enabled: Boolean(id),
   });
 
-  if (isLoading || !product) {
-    return <div className="[padding:60px] text-gf-muted">กำลังโหลด…</div>;
+  if (isLoading) {
+    return <div className="px-4 py-16 text-center text-gf-muted">{t.loading}</div>;
   }
+
+  if (isError || !product) {
+    return <div className="px-4 py-16 text-center text-gf-muted">{t.notFound}</div>;
+  }
+
+  const media = [...(product.media ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  const selectedMedia = media.find((item) => item.id === selectedMediaId) ?? media[0];
+  const currency = new Intl.NumberFormat(locale === 'th' ? 'th-TH' : 'en-US', {
+    style: 'currency',
+    currency: 'THB',
+    maximumFractionDigits: 0,
+  });
 
   return (
     <div className="animate-fade-up">
-      <Breadcrumb items={['ทั้งหมด', product.name]} />
-      <div className="grid grid-cols-[300px_1fr] items-start gap-[26px] max-[900px]:grid-cols-1">
-        {/* Left: hero */}
-        <div className="bg-gf-pink-100 rounded-[22px] [padding:26px] text-center">
-          <div className="bg-white rounded-[14px] [padding:12px] font-bold text-[13.5px] [margin-bottom:16px] [box-shadow:var(--gf-shadow-sm)]">{product.name}</div>
-          <div className="[margin:20px_0]">
-            <CameraGlyph color={product.color} size={130} />
-          </div>
-          <Link
-            href={`/for-rent/${id}/booking`}
-            className="block bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:13px_26px] font-semibold text-[15px] cursor-pointer no-underline text-center"
-          >
-            ส่งคำขอเช่าสินค้า
-          </Link>
-        </div>
+      <Breadcrumb items={[t.allProducts, product.name]} />
 
-        {/* Right: details */}
-        <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] overflow-hidden">
-          <div className="[padding:24px_28px_0]">
-            <h2 className="[margin:0_0_4px] text-[20px]">{product.name}</h2>
-            <p className="text-gf-muted text-[13.5px] [margin:0_0_18px]">{product.desc}</p>
-            {/* Pill tabs */}
-            <div className="flex gap-[8px] bg-gf-pink-100 [padding:6px] rounded-full [margin-bottom:20px] w-[fit-content]">
-              {(['detail', 'policy'] as const).map((t) => (
+      <section className="grid items-start gap-7 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]">
+        <div className="min-w-0">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-gf-pink-100">
+            {selectedMedia?.mediaType === 'image' ? (
+              <Image
+                src={selectedMedia.url}
+                alt={`${t.image}: ${product.name}`}
+                fill
+                priority
+                unoptimized
+                className="object-cover"
+              />
+            ) : selectedMedia?.mediaType === 'video' ? (
+              <video
+                src={selectedMedia.url}
+                controls
+                className="h-full w-full bg-black object-contain"
+                aria-label={`${t.video}: ${product.name}`}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-gf-muted">
+                <CameraGlyph color={product.color} size={150} />
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <Camera size={17} />
+                  {t.noMedia}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {media.length > 1 && (
+            <div
+              className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-6"
+              aria-label={t.productMedia}
+            >
+              {media.map((item, index) => (
                 <button
-                  key={t}
-                  onClick={() => setTab(t)}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedMediaId(item.id)}
                   className={cn(
-                    'cursor-pointer rounded-full border-0 px-5 py-2.5 text-sm font-semibold',
-                    tab === t ? 'bg-gf-pink-500 text-gf-brown-900' : 'bg-transparent text-gf-brown-700',
+                    'relative aspect-square overflow-hidden rounded-lg border-2 bg-gf-pink-50',
+                    selectedMedia?.id === item.id
+                      ? 'border-gf-pink-500'
+                      : 'border-transparent hover:border-gf-pink-300',
                   )}
+                  aria-label={`${item.mediaType === 'video' ? t.video : t.image} ${index + 1}`}
                 >
-                  {t === 'detail' ? 'รายละเอียดสินค้าเพิ่มเติม' : 'มาตรการการเช่าสินค้า'}
+                  {item.mediaType === 'image' ? (
+                    <Image
+                      src={item.url}
+                      alt=""
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full items-center justify-center text-gf-brown-700">
+                      <Play size={22} fill="currentColor" />
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
-          </div>
-          <div className="[padding:0_28px_28px]">
-            {tab === 'detail' ? (
-              <>
-                <b className="text-[14.5px]">อุปกรณ์</b>
-                <ul className="text-gf-brown-700 text-[14px] [line-height:2] [margin-top:8px]">
-                  <li>{product.name} จำนวน 1 เครื่อง</li>
-                  <li>แบตเตอรี่</li>
-                  <li>ที่ชาร์จแบตเตอรี่</li>
-                  <li>เมมโมรี่การ์ด</li>
-                  <li>ตัวอ่านการ์ด (Card Reader) สำหรับดึงรูปภาพ</li>
-                </ul>
-              </>
-            ) : (
-              <ul className="text-gf-brown-700 text-[14px] [line-height:2] [margin-top:8px]">
-                <li>ระยะเวลาการเช่าเริ่มนับตั้งแต่ 10:00 น. ของวันรับอุปกรณ์</li>
-                <li>กรุณาคืนอุปกรณ์ก่อนเวลา 10:00 น. ของวันคืนที่เลือก</li>
-                <li>หากต้องการขยายระยะเวลาการเช่า กรุณาติดต่อ GlowFrame ล่วงหน้าก่อนถึงกำหนดคืน</li>
-                <li>การคืนอุปกรณ์ล่าช้าอาจมีค่าปรับตามเงื่อนไขของ GlowFrame</li>
-              </ul>
+          )}
+        </div>
+
+        <div className="min-w-0 rounded-[20px] bg-white p-5 shadow-[var(--gf-shadow)] sm:p-7">
+          <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold text-gf-brown-700">
+            {product.category && (
+              <span className="rounded-full bg-gf-pink-100 px-3 py-1.5">
+                {product.category.name}
+              </span>
+            )}
+            {product.brand && (
+              <span className="rounded-full bg-gf-yellow-100 px-3 py-1.5">
+                {product.brand.name}
+              </span>
             )}
           </div>
+
+          <h1 className="m-0 text-2xl font-bold leading-tight text-gf-brown-900 sm:text-[28px]">
+            {product.name}
+          </h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gf-muted">
+            <span className="flex items-center gap-1.5 font-semibold text-gf-brown-700">
+              <Star size={16} fill="currentColor" className="text-gf-yellow-500" />
+              {product.rating.toFixed(1)}
+            </span>
+            {product.owner && (
+              <span className="flex items-center gap-1.5">
+                {product.owner.verified && <BadgeCheck size={17} className="text-gf-pink-600" />}
+                {t.owner}: {product.owner.displayName}
+              </span>
+            )}
+          </div>
+
+          <p className="mt-5 text-sm leading-7 text-gf-brown-700">{product.desc}</p>
+
+          <div className="my-6 grid grid-cols-2 border-y border-gf-pink-100 py-5">
+            <div className="border-r border-gf-pink-100 pr-4">
+              <p className="m-0 text-xs text-gf-muted">{t.perDay}</p>
+              <p className="mt-1 text-2xl font-bold text-gf-pink-700">
+                {currency.format(product.price)}
+              </p>
+            </div>
+            <div className="pl-5">
+              <p className="m-0 text-xs text-gf-muted">{t.securityDeposit}</p>
+              <p className="mt-1 text-xl font-bold text-gf-brown-900">
+                {currency.format(product.deposit)}
+              </p>
+            </div>
+          </div>
+
+          {product.pickupArea && (
+            <div className="flex items-start gap-3 text-sm">
+              <MapPin size={19} className="mt-0.5 shrink-0 text-gf-pink-600" />
+              <div>
+                <p className="m-0 font-semibold text-gf-brown-900">{t.pickupArea}</p>
+                <p className="mt-1 text-gf-brown-700">
+                  {product.pickupArea.district}, {product.pickupArea.province}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-gf-muted">{t.pickupAreaHint}</p>
+              </div>
+            </div>
+          )}
+
+          {product.owner?.verified && (
+            <div className="mt-4 flex items-center gap-2 text-sm font-medium text-gf-brown-700">
+              <ShieldCheck size={18} className="text-emerald-600" />
+              {t.verifiedOwner}
+            </div>
+          )}
+
+          <Link
+            href={`/for-rent/${id}/booking`}
+            className="mt-6 flex min-h-12 w-full items-center justify-center rounded-full bg-gf-pink-500 px-6 py-3 text-center text-[15px] font-semibold text-gf-brown-900 no-underline transition-colors hover:bg-gf-pink-600"
+          >
+            {t.requestRental}
+          </Link>
+          <p className="mb-0 mt-2 text-center text-xs text-gf-muted">{t.chooseDeliveryLater}</p>
         </div>
-      </div>
+      </section>
+
+      <section className="mt-8">
+        <div className="flex w-full gap-1 border-b border-gf-pink-200 sm:w-auto">
+          {(['detail', 'policy'] as const).map((tabKey) => (
+            <button
+              key={tabKey}
+              type="button"
+              onClick={() => setTab(tabKey)}
+              className={cn(
+                'min-h-11 flex-1 border-0 border-b-2 bg-transparent px-4 py-3 text-sm font-semibold sm:flex-none sm:px-6',
+                tab === tabKey
+                  ? 'border-gf-pink-500 text-gf-brown-900'
+                  : 'border-transparent text-gf-muted hover:text-gf-brown-700',
+              )}
+            >
+              {tabKey === 'detail' ? t.productDetails : t.rentalPolicy}
+            </button>
+          ))}
+        </div>
+
+        <div className="py-6">
+          {tab === 'detail' ? (
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <dl className="m-0 grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 gap-y-4 text-sm">
+                <dt className="text-gf-muted">{t.category}</dt>
+                <dd className="m-0 font-medium text-gf-brown-900">
+                  {product.category?.name ?? '-'}
+                </dd>
+                <dt className="text-gf-muted">{t.brand}</dt>
+                <dd className="m-0 font-medium text-gf-brown-900">
+                  {product.brand?.name ?? '-'}
+                </dd>
+                <dt className="text-gf-muted">{t.model}</dt>
+                <dd className="m-0 font-medium text-gf-brown-900">{product.model ?? '-'}</dd>
+                <dt className="text-gf-muted">{t.condition}</dt>
+                <dd className="m-0 leading-6 text-gf-brown-700">
+                  {product.conditionNote ?? '-'}
+                </dd>
+              </dl>
+
+              <div>
+                <h2 className="m-0 flex items-center gap-2 text-base font-bold text-gf-brown-900">
+                  <PackageCheck size={19} className="text-gf-pink-600" />
+                  {t.includedAccessories}
+                </h2>
+                {product.accessories?.length ? (
+                  <ul className="mt-3 divide-y divide-gf-pink-100 border-y border-gf-pink-100">
+                    {product.accessories.map((accessory) => (
+                      <li
+                        key={accessory.id}
+                        className="flex min-h-11 items-center justify-between gap-4 py-2 text-sm"
+                      >
+                        <span className="text-gf-brown-700">{accessory.name}</span>
+                        <span className="shrink-0 font-semibold text-gf-brown-900">
+                          {t.quantity} {accessory.quantity}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-gf-muted">{t.noAccessories}</p>
+                )}
+              </div>
+
+              {product.extraDetails && (
+                <div className="lg:col-span-2">
+                  <h2 className="m-0 text-base font-bold text-gf-brown-900">{t.extraDetails}</h2>
+                  <p className="mt-2 text-sm leading-7 text-gf-brown-700">
+                    {product.extraDetails}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <ul className="m-0 grid list-none gap-3 p-0 text-sm leading-7 text-gf-brown-700 md:grid-cols-2">
+              {[t.policyStart, t.policyReturn, t.policyExtend, t.policyLate].map((policy) => (
+                <li key={policy} className="flex items-start gap-3">
+                  <ShieldCheck size={18} className="mt-1 shrink-0 text-gf-pink-600" />
+                  <span>{policy}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

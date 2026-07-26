@@ -27,8 +27,6 @@ import type { Bank } from '@/types/masterData'
 const CARD_CLASS = 'mb-5 rounded-[22px] bg-white px-7 py-8 shadow-[var(--gf-shadow)]'
 const SECTION_TITLE_CLASS = 'mb-6 border-b border-[var(--gf-brown-100)] pb-3 font-[var(--font-poppins)] text-[17px] font-bold text-gf-brown-900'
 const FORM_GRID_CLASS = 'mb-6 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-6 gap-y-5'
-const SELECT_TRIGGER_CLASS = 'h-[42px] w-full rounded-[14px] border-[1.5px] border-gf-brown-300 bg-white px-3.5 text-sm text-gf-brown-900'
-
 const feesSchema = z.object({
   platformFee: z.number().min(0).max(100),
   minPayout: z.number().min(0),
@@ -52,17 +50,13 @@ const paymentSchema = z.object({
 })
 
 const addAdminSchema = z.object({
-  name: z.string().min(1),
   email: z.string().email(),
-  role: z.string().min(1)
 })
 
 type FeesForm = z.infer<typeof feesSchema>
 type BookingForm = z.infer<typeof bookingSchema>
 type PaymentForm = z.infer<typeof paymentSchema>
 type AddAdminForm = z.infer<typeof addAdminSchema>
-
-const ROLE_OPTIONS = ['super-admin', 'moderator', 'finance']
 
 export default function SettingsPage() {
   const locale = useAppStore((s) => s.locale)
@@ -98,7 +92,6 @@ export default function SettingsPage() {
   const bookingForm = useForm<BookingForm>({ resolver: zodResolver(bookingSchema), values: settings?.booking })
   const paymentForm = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema), values: settings?.payment })
   const addAdminForm = useForm<AddAdminForm>({ resolver: zodResolver(addAdminSchema) })
-  const selectedRole = useWatch({ control: addAdminForm.control, name: 'role' })
   const selectedPlatformBank = useWatch({ control: paymentForm.control, name: 'platformBankName' })
   const platformBankOptions = useMemo(() => {
     const hasCurrent = selectedPlatformBank && banks.some((bank) => bank.name === selectedPlatformBank)
@@ -139,15 +132,8 @@ export default function SettingsPage() {
       header: t.role,
       render: (row: AdminAccount) => (
         <span className="text-[12px] font-semibold [padding:5px_12px] rounded-full bg-gf-pink-100 text-[var(--gf-pink-700)] [text-transform:capitalize] inline-block">
-          {row.role}
+          {t.adminRoleValue}
         </span>
-      )
-    },
-    {
-      key: 'lastLogin',
-      header: t.lastLogin,
-      render: (row: AdminAccount) => (
-        <span className="text-[13px] text-gf-muted">{row.lastLogin}</span>
       )
     },
     {
@@ -230,7 +216,7 @@ export default function SettingsPage() {
                   value={selectedPlatformBank ?? ''}
                   onValueChange={(value) => paymentForm.setValue('platformBankName', value ?? '', { shouldDirty: true })}
                 >
-                  <SelectTrigger className={SELECT_TRIGGER_CLASS}>
+                  <SelectTrigger>
                     <SelectValue placeholder={t.platformBankName} />
                   </SelectTrigger>
                   <SelectContent>
@@ -291,23 +277,8 @@ export default function SettingsPage() {
         })}
       >
         <div className="flex flex-col gap-[18px]">
-          <Field label={t.name}>
-            <Input {...addAdminForm.register('name')} />
-          </Field>
           <Field label={t.email}>
             <Input type="email" {...addAdminForm.register('email')} />
-          </Field>
-          <Field label={t.role}>
-            <Select value={selectedRole ?? ''} onValueChange={(v) => addAdminForm.setValue('role', v ?? '')}>
-              <SelectTrigger className={SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder={t.selectRole} />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_OPTIONS.map(r => (
-                  <SelectItem key={r} value={r} className="[text-transform:capitalize]">{r}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </Field>
         </div>
       </FormDialog>

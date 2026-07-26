@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface Delivery { id: number; bookingNo: string; camera: string; direction: string; carrier: string; trackingNo: string; renterAddress: string; expected: string; lastEvent: string; status: string }
 
@@ -42,6 +43,7 @@ const MOCK_EVENTS = [
 ]
 
 export default function DeliveryPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Active')
@@ -61,7 +63,7 @@ export default function DeliveryPage() {
     queryFn: () => axios.get('/api/admin/operations/delivery', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'operations', 'delivery'] })
-  const markDeliveredMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/operations/delivery/${id}`, { action: 'mark-delivered' }), onSuccess: () => { invalidate(); showToast('Marked as delivered') } })
+  const markDeliveredMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/operations/delivery/${id}`, { action: 'mark-delivered' }), onSuccess: () => { invalidate(); showToast(tr('Marked as delivered')) } })
   const trackingForm = useForm<TrackingForm>({ resolver: zodResolver(trackingSchema) })
   const issueForm = useForm<IssueForm>({ resolver: zodResolver(issueSchema), defaultValues: { issueType: 'lost' } })
 
@@ -73,7 +75,7 @@ export default function DeliveryPage() {
     { key: 'trackingNo', header: 'Tracking #', render: (r: Delivery) => (
       <span className="flex items-center gap-[6px]">
         <span className="font-[var(--font-poppins)] text-[12px]">{r.trackingNo}</span>
-        <button onClick={() => { navigator.clipboard.writeText(r.trackingNo); showToast('Copied!') }} className="bg-transparent border-0 cursor-pointer [padding:2px]"><Copy size={12} /></button>
+        <button onClick={() => { navigator.clipboard.writeText(r.trackingNo); showToast(tr('Copied!')) }} className="bg-transparent border-0 cursor-pointer [padding:2px]"><Copy size={12} /></button>
       </span>
     )},
     { key: 'renterAddress', header: 'Renter address', render: (r: Delivery) => <span className="text-[12.5px] text-gf-muted">{r.renterAddress.slice(0, 35)}{r.renterAddress.length > 35 ? '…' : ''}</span> },
@@ -84,10 +86,10 @@ export default function DeliveryPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); trackingForm.reset({ trackingNo: r.trackingNo }); setTrackingOpen(true) }}>Update tracking #</DropdownMenuItem>
-          {r.status !== 'delivered' && <DropdownMenuItem onClick={() => setDeliveredId(r.id)}>Mark delivered</DropdownMenuItem>}
-          <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); issueForm.reset(); setIssueOpen(true) }}>Flag as issue</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); trackingForm.reset({ trackingNo: r.trackingNo }); setTrackingOpen(true) }}>{tr('Update tracking #')}</DropdownMenuItem>
+          {r.status !== 'delivered' && <DropdownMenuItem onClick={() => setDeliveredId(r.id)}>{tr('Mark delivered')}</DropdownMenuItem>}
+          <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); issueForm.reset(); setIssueOpen(true) }}>{tr('Flag as issue')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -109,8 +111,8 @@ export default function DeliveryPage() {
       <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selected ? `${selected.bookingNo} — ${selected.direction}` : ''}
         footer={
           <div className="flex gap-[10px]">
-            <button className="flex-1 [border:1.5px_solid_var(--gf-red)] bg-transparent text-gf-red rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); issueForm.reset(); setIssueOpen(true) }}>Flag as issue</button>
-            {selected?.status !== 'delivered' && <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); setDeliveredId(selected!.id) }}>Mark delivered</button>}
+            <button className="flex-1 [border:1.5px_solid_var(--gf-red)] bg-transparent text-gf-red rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); issueForm.reset(); setIssueOpen(true) }}>{tr('Flag as issue')}</button>
+            {selected?.status !== 'delivered' && <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); setDeliveredId(selected!.id) }}>{tr('Mark delivered')}</button>}
           </div>
         }
       >
@@ -118,12 +120,12 @@ export default function DeliveryPage() {
           <div>
             {[{ label: 'Camera', value: selected.camera }, { label: 'Carrier', value: selected.carrier }, { label: 'Tracking #', value: selected.trackingNo }, { label: 'Address', value: selected.renterAddress }, { label: 'Expected', value: selected.expected }].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
+                <span className="text-gf-muted">{tr(r.label)}</span>
                 <span className="font-medium">{r.value}</span>
               </div>
             ))}
             <div className="[margin-top:20px]">
-              <div className="text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">Tracking events</div>
+              <div className="text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">{tr('Tracking events')}</div>
               {MOCK_EVENTS.map((e, i) => (
                 <div key={i} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                   <span>{e.event}</span>
@@ -135,16 +137,16 @@ export default function DeliveryPage() {
         )}
       </DetailDrawer>
 
-      <FormDialog open={trackingOpen} onOpenChange={setTrackingOpen} title="Update Tracking Number" submitLabel="Update" onSubmit={trackingForm.handleSubmit(() => { showToast('Tracking number updated'); setTrackingOpen(false) })}>
+      <FormDialog open={trackingOpen} onOpenChange={setTrackingOpen} title="Update Tracking Number" submitLabel="Update" onSubmit={trackingForm.handleSubmit(() => { showToast(tr('Tracking number updated')); setTrackingOpen(false) })}>
         <form><Label>Tracking number</Label><Input {...trackingForm.register('trackingNo')} className="[margin-top:6px] font-[var(--font-poppins)]" /></form>
       </FormDialog>
 
-      <FormDialog open={issueOpen} onOpenChange={setIssueOpen} title="Flag as Issue" submitLabel="Flag" onSubmit={issueForm.handleSubmit(() => { showToast('Flagged as issue'); setIssueOpen(false) })}>
+      <FormDialog open={issueOpen} onOpenChange={setIssueOpen} title="Flag as Issue" submitLabel="Flag" onSubmit={issueForm.handleSubmit(() => { showToast(tr('Flagged as issue')); setIssueOpen(false) })}>
         <form className="flex flex-col gap-[12px]">
           <div>
             <Label>Issue type</Label>
             <Select value={issueForm.watch('issueType')} onValueChange={v => issueForm.setValue('issueType', v ?? 'lost')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="lost">Lost in transit</SelectItem>
                 <SelectItem value="damaged">Damaged in transit</SelectItem>

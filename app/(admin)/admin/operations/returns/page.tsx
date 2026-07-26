@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { CameraGlyph } from '@/components/common/CameraGlyph'
 import { useToast } from '@/hooks/useToast'
 import { cn } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface PendingReturn { id: number; bookingNo: string; camera: { name: string; color: string }; renter: string; owner: string; dueDate: string; delivery: string; status: string }
 interface ConditionReport { id: number; reportId: string; bookingNo: string; camera: string; condition: string; reportedBy: string; photos: number; reported: string; claimStatus: string }
@@ -24,6 +25,7 @@ const CONDITION_OPTIONS = [{ value: '', label: 'All conditions' }, { value: 'int
 const TABS = ['Pending Returns', 'Submitted Reports']
 
 export default function ReturnsPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Pending Returns')
@@ -42,7 +44,7 @@ export default function ReturnsPage() {
   const pending = items as PendingReturn[]
   const reports = items as ConditionReport[]
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'operations', 'returns'] })
-  const markReturnedMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/operations/returns/${id}`, { action: 'mark-returned' }), onSuccess: () => { invalidate(); showToast('Marked as returned') } })
+  const markReturnedMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/operations/returns/${id}`, { action: 'mark-returned' }), onSuccess: () => { invalidate(); showToast(tr('Marked as returned')) } })
 
   const PENDING_COLS = [
     { key: 'bookingNo', header: 'Booking #', render: (r: PendingReturn) => r.bookingNo },
@@ -54,8 +56,8 @@ export default function ReturnsPage() {
     { key: 'status', header: 'Status', render: (r: PendingReturn) => <StatusBadge status={r.status} /> },
     { key: 'actions', header: '', render: (r: PendingReturn) => (
       <span className="flex gap-[6px]">
-        <button onClick={() => setMarkReturnedId(r.id)} className="text-[12px] [padding:4px_10px] rounded-full border-0 bg-gf-pink-500 cursor-pointer text-gf-brown-900 font-semibold">Mark returned</button>
-        <button onClick={() => showToast('Flagged as late return')} className="text-[12px] [padding:4px_10px] rounded-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent cursor-pointer text-gf-brown-700">Flag late</button>
+        <button onClick={() => setMarkReturnedId(r.id)} className="text-[12px] [padding:4px_10px] rounded-full border-0 bg-gf-pink-500 cursor-pointer text-gf-brown-900 font-semibold">{tr('Mark returned')}</button>
+        <button onClick={() => showToast(tr('Flagged as late return'))} className="text-[12px] [padding:4px_10px] rounded-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent cursor-pointer text-gf-brown-700">{tr('Flag late')}</button>
       </span>
     )},
   ]
@@ -73,9 +75,9 @@ export default function ReturnsPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          {['minor-damage', 'major-damage', 'missing'].includes(r.condition) && <DropdownMenuItem onClick={() => showToast('Dispute opened')}>Open dispute</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => showToast('Report closed')}>Close report</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
+          {['minor-damage', 'major-damage', 'missing'].includes(r.condition) && <DropdownMenuItem onClick={() => showToast(tr('Dispute opened'))}>{tr('Open dispute')}</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => showToast(tr('Report closed'))}>{tr('Close report')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -100,11 +102,11 @@ export default function ReturnsPage() {
         footer={
           selected && ['minor-damage', 'major-damage', 'missing'].includes(selected.condition) ? (
             <div className="flex gap-[10px]">
-              <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => showToast('Dispute opened')}>Open Dispute</button>
-              <button className="flex-1 [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>Close without action</button>
+              <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => showToast(tr('Dispute opened'))}>{tr('Open dispute')}</button>
+              <button className="flex-1 [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>{tr('Close without action')}</button>
             </div>
           ) : (
-            <button className="w-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>Close report</button>
+            <button className="w-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>{tr('Close report')}</button>
           )
         }
       >
@@ -113,13 +115,13 @@ export default function ReturnsPage() {
             <div className="flex justify-center [margin-bottom:16px]"><StatusBadge status={selected.condition} /></div>
             {[{ label: 'Booking #', value: selected.bookingNo }, { label: 'Camera', value: selected.camera }, { label: 'Reported by', value: selected.reportedBy }, { label: 'Photos', value: `${selected.photos} photos` }, { label: 'Reported', value: selected.reported }].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
+                <span className="text-gf-muted">{tr(r.label)}</span>
                 <span className="font-medium">{r.value}</span>
               </div>
             ))}
             <div className="[margin-top:16px] grid [grid-template-columns:repeat(3,1fr)] gap-[8px]">
               {Array.from({ length: selected.photos }).map((_, i) => (
-                <div key={i} className="bg-gf-pink-100 rounded-[14px] h-[80px] flex items-center justify-center text-[12px] text-gf-muted">Photo {i + 1}</div>
+                <div key={i} className="bg-gf-pink-100 rounded-[14px] h-[80px] flex items-center justify-center text-[12px] text-gf-muted">{tr('Photo')} {i + 1}</div>
               ))}
             </div>
           </div>

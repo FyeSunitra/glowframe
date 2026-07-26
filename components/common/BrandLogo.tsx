@@ -11,7 +11,7 @@ interface BrandLogoProps {
 const variantClasses: Record<BrandLogoVariant, string> = {
   compact: 'size-[52px] rounded-full',
   auth: 'aspect-square w-full max-w-[360px] rounded-full',
-  about: 'size-[220px] rounded-[22px]',
+  about: 'size-[168px] rounded-[18px] sm:size-[196px] lg:size-[220px] lg:rounded-[22px]',
 };
 
 const imageClasses: Record<BrandLogoVariant, string> = {
@@ -33,7 +33,7 @@ export function BrandLogo({ variant = 'compact', priority = false }: BrandLogoPr
         alt="GlowFrame"
         fill
         priority={priority}
-        sizes={variant === 'compact' ? '52px' : variant === 'about' ? '220px' : '(max-width: 900px) 80vw, 360px'}
+        sizes={variant === 'compact' ? '52px' : variant === 'about' ? '(max-width: 639px) 168px, (max-width: 1023px) 196px, 220px' : '(max-width: 900px) 80vw, 360px'}
         className={cn('object-cover', imageClasses[variant])}
       />
     </span>

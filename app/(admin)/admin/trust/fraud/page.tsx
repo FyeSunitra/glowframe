@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface FraudSignal { id: number; signalType: string; entity: string; severity: string; triggeredRule: string; detected: string; status: string }
 
@@ -28,6 +29,7 @@ const SIGNAL_ICONS: Record<string, React.ReactNode> = {
 }
 
 export default function FraudPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [signalType, setSignalType] = useState('')
@@ -41,7 +43,7 @@ export default function FraudPage() {
     queryFn: () => axios.get('/api/admin/trust/fraud', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'trust', 'fraud'] })
-  const dismissMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/fraud/${id}`, { action: 'dismiss' }), onSuccess: () => { invalidate(); showToast('Signal dismissed') } })
+  const dismissMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/fraud/${id}`, { action: 'dismiss' }), onSuccess: () => { invalidate(); showToast(tr('Signal dismissed')) } })
 
   const COLUMNS = [
     { key: 'signalType', header: 'Signal type', render: (r: FraudSignal) => (
@@ -57,8 +59,8 @@ export default function FraudPage() {
     { key: 'status', header: 'Status', render: (r: FraudSignal) => <StatusBadge status={r.status} /> },
     { key: 'actions', header: '', render: (r: FraudSignal) => (
       <span className="flex gap-[6px]">
-        <button onClick={() => setDismissId(r.id)} className="text-[12px] [padding:4px_10px] rounded-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent cursor-pointer text-gf-brown-700">Dismiss</button>
-        <button onClick={() => showToast('Escalated to disputes')} className="text-[12px] [padding:4px_10px] rounded-full border-0 bg-gf-pink-500 cursor-pointer text-gf-brown-900 font-semibold">Escalate</button>
+        <button onClick={() => setDismissId(r.id)} className="text-[12px] [padding:4px_10px] rounded-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent cursor-pointer text-gf-brown-700">{tr('Dismiss')}</button>
+        <button onClick={() => showToast(tr('Escalated to disputes'))} className="text-[12px] [padding:4px_10px] rounded-full border-0 bg-gf-pink-500 cursor-pointer text-gf-brown-900 font-semibold">{tr('Escalate')}</button>
       </span>
     )},
   ]

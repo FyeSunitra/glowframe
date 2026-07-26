@@ -14,12 +14,14 @@ import { StatusBadge } from '@/components/admin/shared/StatusBadge'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface Promo { id: number; code: string; type: string; value: number; minBookingValue: number | null; used: number; limit: number | null; expires: string | null; status: string }
 
@@ -37,6 +39,7 @@ const promoSchema = z.object({
 type PromoForm = z.infer<typeof promoSchema>
 
 export default function PromotionsPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -58,10 +61,10 @@ export default function PromotionsPage() {
       const { id, ...body } = data
       return id ? axios.patch(`/api/admin/financial/promotions/${id}`, body) : axios.post('/api/admin/financial/promotions', body)
     },
-    onSuccess: () => { invalidate(); showToast('Promo code saved') },
+    onSuccess: () => { invalidate(); showToast(tr('Promo code saved')) },
   })
-  const disableMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/financial/promotions/${id}`, { status: 'disabled' }), onSuccess: () => { invalidate(); showToast('Code disabled') } })
-  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/financial/promotions/${id}`), onSuccess: () => { invalidate(); showToast('Code deleted') } })
+  const disableMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/financial/promotions/${id}`, { status: 'disabled' }), onSuccess: () => { invalidate(); showToast(tr('Code disabled')) } })
+  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/financial/promotions/${id}`), onSuccess: () => { invalidate(); showToast(tr('Code deleted')) } })
 
   const form = useForm<PromoForm>({ resolver: zodResolver(promoSchema), defaultValues: { type: 'percentage', appliesTo: 'all' } })
 
@@ -77,10 +80,10 @@ export default function PromotionsPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ code: r.code, type: r.type, value: r.value, appliesTo: 'all' }); setFormOpen(true) }}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(r.code); showToast('Code copied!') }}>Copy code</DropdownMenuItem>
-          {r.status === 'active' && <DropdownMenuItem onClick={() => setDisableId(r.id)}>Disable</DropdownMenuItem>}
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>Delete</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ code: r.code, type: r.type, value: r.value, appliesTo: 'all' }); setFormOpen(true) }}>{tr('Edit')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(r.code); showToast(tr('Code copied!')) }}>{tr('Copy code')}</DropdownMenuItem>
+          {r.status === 'active' && <DropdownMenuItem onClick={() => setDisableId(r.id)}>{tr('Disable')}</DropdownMenuItem>}
+          <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>{tr('Delete')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -91,7 +94,7 @@ export default function PromotionsPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Financial', 'Promotions']}
         title="Promotions"
-        action={<button onClick={() => { setEditTarget(null); form.reset({ type: 'percentage', appliesTo: 'all' }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">+ Create code</button>}
+        action={<button onClick={() => { setEditTarget(null); form.reset({ type: 'percentage', appliesTo: 'all' }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('+ Create code')}</button>}
       />
       <FilterBar
         search={{ placeholder: 'Search promo code…', value: search, onChange: setSearch }}
@@ -108,7 +111,7 @@ export default function PromotionsPage() {
           <div>
             <Label>Discount type</Label>
             <Select value={form.watch('type')} onValueChange={v => form.setValue('type', v ?? 'flat')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="flat">Flat (฿ X off)</SelectItem>
                 <SelectItem value="percentage">Percentage (X% off)</SelectItem>
@@ -123,7 +126,7 @@ export default function PromotionsPage() {
           <div>
             <Label>Applies to</Label>
             <Select value={form.watch('appliesTo')} onValueChange={v => form.setValue('appliesTo', v ?? 'all')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="renters">Renters only</SelectItem>
@@ -135,7 +138,7 @@ export default function PromotionsPage() {
       </FormDialog>
 
       <ConfirmDialog open={disableId !== null} onOpenChange={open => { if (!open) setDisableId(null) }} title="Disable this code?" description="The code will no longer be accepted at checkout." onConfirm={() => { if (disableId !== null) disableMutation.mutate(disableId); setDisableId(null) }} />
-      <ConfirmDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} title="Delete this code?" description="This cannot be undone." destructive onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
+      <ConfirmDeleteDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} pending={deleteMutation.isPending} onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
     </div>
   )
 }

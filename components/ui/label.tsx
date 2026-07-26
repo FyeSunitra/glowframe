@@ -3,8 +3,11 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { translateText } from "@/lib/menuI18n"
+import { useAppStore } from "@/store/appStore"
 
-function Label({ className, ...props }: React.ComponentProps<"label">) {
+function Label({ className, children, ...props }: React.ComponentProps<"label">) {
+  const locale = useAppStore((state) => state.locale)
   return (
     <label
       data-slot="label"
@@ -13,7 +16,9 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? translateText(locale, children) : children}
+    </label>
   )
 }
 

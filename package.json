@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "admin:promote": "tsx scripts/promote-admin.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

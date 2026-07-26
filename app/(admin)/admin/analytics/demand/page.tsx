@@ -11,6 +11,7 @@ import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { CameraGlyph } from '@/components/common/CameraGlyph'
 import { cn, money } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 const PERIOD_OPTIONS = [{ value: 'this-week', label: 'This week' }, { value: 'this-month', label: 'This month' }, { value: 'last-month', label: 'Last month' }, { value: 'last-3-months', label: 'Last 3 months' }]
 
@@ -22,6 +23,7 @@ interface DeliveryRow { method: string; bookings: number; share: number; avgFee:
 interface DemandResponse { stats: DemandStats; topCameras: TopCamera[]; topOwners: TopOwner[]; demandByCity: CityRow[]; deliveryBreakdown: DeliveryRow[] }
 
 export default function DemandPage() {
+  const { tr } = useMenuI18n()
   const [period, setPeriod] = useState('this-month')
   const { data, isLoading } = useQuery<DemandResponse>({
     queryKey: ['admin', 'analytics', 'demand', period],
@@ -81,7 +83,7 @@ export default function DemandPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Analytics', 'Rental Demand']}
         title="Rental Demand"
-        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">Export CSV</button>}
+        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('Export CSV')}</button>}
       />
       <FilterBar selects={[{ label: 'Period', value: period, onChange: setPeriod, options: PERIOD_OPTIONS }]} />
 
@@ -94,22 +96,22 @@ export default function DemandPage() {
 
       <div className="grid [grid-template-columns:1fr_1fr] gap-[22px] [margin-bottom:22px]">
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Top cameras by bookings</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Top cameras by bookings')}</div>
           <DataTable columns={TOP_CAM_COLS} data={data?.topCameras ?? []} loading={isLoading} empty={<EmptyState icon={Camera} heading="No data" sub="No demand data available." />} />
         </div>
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Top owners by earnings</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Top owners by earnings')}</div>
           <DataTable columns={TOP_OWN_COLS} data={data?.topOwners ?? []} loading={isLoading} empty={<EmptyState icon={Users} heading="No data" sub="No owner data available." />} />
         </div>
       </div>
 
       <div className="grid [grid-template-columns:1fr_1fr] gap-[22px]">
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Demand by city</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Demand by city')}</div>
           <DataTable columns={CITY_COLS} data={data?.demandByCity ?? []} loading={isLoading} empty={<EmptyState icon={TrendingUp} heading="No data" sub="No city data available." />} />
         </div>
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Delivery method breakdown</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Delivery method breakdown')}</div>
           <DataTable columns={DELIVERY_COLS} data={data?.deliveryBreakdown ?? []} loading={isLoading} empty={<EmptyState icon={BarChart2} heading="No data" sub="No delivery data available." />} />
         </div>
       </div>

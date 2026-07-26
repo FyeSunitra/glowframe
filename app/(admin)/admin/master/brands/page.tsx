@@ -10,7 +10,7 @@ import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
-import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -21,11 +21,16 @@ import { unwrapApiResponse } from '@/lib/api'
 import { masterDataService } from '@/services/masterData'
 import type { Brand } from '@/types/masterData'
 import { cn } from '@/lib/utils'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
-const brandSchema = z.object({ name: z.string().min(1, 'Brand name is required') })
-type BrandForm = z.infer<typeof brandSchema>
+type BrandForm = { name: string }
 
 export default function BrandsPage() {
+  const locale = useAppStore((state) => state.locale)
+  const masterText = getPageText(locale, 'adminMasterData')
+  const t = masterText.brands
+  const brandSchema = z.object({ name: z.string().trim().min(1, t.required) })
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [editTarget, setEditTarget] = useState<Brand | null>(null)
@@ -46,28 +51,28 @@ export default function BrandsPage() {
         ? masterDataService.brands.update(id, body).then(unwrapApiResponse)
         : masterDataService.brands.create(body).then(unwrapApiResponse)
     },
-    onSuccess: () => { invalidate(); showToast('Brand saved') },
+    onSuccess: () => { invalidate(); showToast(t.saved) },
   })
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) =>
       masterDataService.brands.update(id, { active }).then(unwrapApiResponse),
-    onSuccess: (_, vars) => { invalidate(); showToast(vars.active ? 'Brand activated' : 'Brand deactivated') },
+    onSuccess: (_, vars) => { invalidate(); showToast(vars.active ? t.activated : t.deactivated) },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => masterDataService.brands.delete(id).then(unwrapApiResponse),
-    onSuccess: () => { invalidate(); showToast('Brand deleted') },
+    onSuccess: () => { invalidate(); showToast(t.deleted) },
   })
 
   const form = useForm<BrandForm>({ resolver: zodResolver(brandSchema) })
 
   const COLUMNS = [
-    { key: 'name', header: 'Brand name', render: (r: Brand) => (
+    { key: 'name', header: t.name, render: (r: Brand) => (
       <span className="font-semibold">{r.name}</span>
     )},
-    { key: 'activeListings', header: 'Active listings', render: (r: Brand) => r.activeListings },
-    { key: 'active', header: 'Active', render: (r: Brand) => (
+    { key: 'activeListings', header: masterText.activeListings, render: (r: Brand) => r.activeListings },
+    { key: 'active', header: masterText.active, render: (r: Brand) => (
       <button
         onClick={() => toggleMutation.mutate({ id: r.id, active: !r.active })}
         className={cn(
@@ -76,7 +81,7 @@ export default function BrandsPage() {
         )}
       >
         <span className="w-[8px] h-[8px] rounded-full bg-white inline-block" />
-        {r.active ? 'On' : 'Off'}
+        {r.active ? masterText.on : masterText.off}
       </button>
     )},
     { key: 'actions', header: '', render: (r: Brand) => (
@@ -93,12 +98,12 @@ export default function BrandsPage() {
             form.reset({ name: r.name })
             setFormOpen(true)
           }}>
-            Edit
+            {masterText.edit}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => toggleMutation.mutate({ id: r.id, active: !r.active })}
           >
-            {r.active ? 'Deactivate' : 'Activate'}
+            {r.active ? masterText.deactivate : masterText.activate}
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
@@ -106,7 +111,7 @@ export default function BrandsPage() {
             // Disabled when brand has listings — rendered but styled muted
             className={cn(r.activeListings > 0 && 'pointer-events-none opacity-40')}
           >
-            Delete
+            {masterText.delete}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -116,14 +121,14 @@ export default function BrandsPage() {
   return (
     <div className="animate-fade-up">
       <AdminPageHeader
-        breadcrumb={['Admin', 'Master Data', 'Camera Brands']}
-        title="Camera Brands"
+        breadcrumb={['Admin', masterText.breadcrumb, t.title]}
+        title={t.title}
         action={
           <button
             onClick={() => { setEditTarget(null); form.reset({ name: '' }); setFormOpen(true) }}
             className="[border:1.5px_solid_var(--gf-brown-300)] text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold bg-transparent cursor-pointer"
           >
-            + Add brand
+            {t.add}
           </button>
         }
       />
@@ -135,8 +140,8 @@ export default function BrandsPage() {
         empty={
           <EmptyState
             icon={Tag}
-            heading="No brands yet"
-            sub="Add at least one brand before owners can list cameras."
+            heading={t.empty}
+            sub={t.emptySub}
           />
         }
       />
@@ -144,18 +149,18 @@ export default function BrandsPage() {
       <FormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title={editTarget ? 'Edit Brand' : 'Add Brand'}
-        submitLabel={editTarget ? 'Save changes' : 'Add brand'}
+        title={editTarget ? t.editTitle : t.addTitle}
+        submitLabel={editTarget ? masterText.saveChanges : t.addSubmit}
         onSubmit={form.handleSubmit(data => {
           saveMutation.mutate({ ...data, id: editTarget?.id })
           setFormOpen(false)
         })}
       >
         <form>
-          <Label>Brand name</Label>
+          <Label>{t.name}</Label>
           <Input
             {...form.register('name')}
-            placeholder="e.g. Canon"
+            placeholder={t.placeholder}
             className="[margin-top:6px]"
           />
           {form.formState.errors.name && (
@@ -166,12 +171,10 @@ export default function BrandsPage() {
         </form>
       </FormDialog>
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={deleteTarget !== null}
         onOpenChange={open => { if (!open) setDeleteTarget(null) }}
-        title={`Delete "${deleteTarget?.name}"?`}
-        description="This brand will be permanently removed. This cannot be undone."
-        destructive
+        pending={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
           setDeleteTarget(null)

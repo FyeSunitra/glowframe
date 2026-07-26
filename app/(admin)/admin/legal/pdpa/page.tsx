@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface PDPARequest { id: number; requestId: string; user: { displayName: string; email: string }; type: string; submitted: string; dueDate: string; status: string }
 
@@ -35,6 +36,7 @@ function dueDateColor(due: string): string {
 }
 
 export default function PDPAPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -50,8 +52,8 @@ export default function PDPAPage() {
     queryFn: () => axios.get('/api/admin/legal/pdpa', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'legal', 'pdpa'] })
-  const progressMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/legal/pdpa/${id}`, { action: 'in-progress' }), onSuccess: () => { invalidate(); showToast('Marked in progress') } })
-  const completeMutation = useMutation({ mutationFn: ({ id, notes }: { id: number; notes?: string }) => axios.patch(`/api/admin/legal/pdpa/${id}`, { action: 'complete', notes }), onSuccess: () => { invalidate(); showToast('Request completed') } })
+  const progressMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/legal/pdpa/${id}`, { action: 'in-progress' }), onSuccess: () => { invalidate(); showToast(tr('Marked in progress')) } })
+  const completeMutation = useMutation({ mutationFn: ({ id, notes }: { id: number; notes?: string }) => axios.patch(`/api/admin/legal/pdpa/${id}`, { action: 'complete', notes }), onSuccess: () => { invalidate(); showToast(tr('Request completed')) } })
   const completeForm = useForm<CompleteForm>({ resolver: zodResolver(completeSchema) })
 
   const COLUMNS = [
@@ -70,9 +72,9 @@ export default function PDPAPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          {r.status === 'pending' && <DropdownMenuItem onClick={() => progressMutation.mutate(r.id)}>Mark in progress</DropdownMenuItem>}
-          {r.status !== 'completed' && <DropdownMenuItem onClick={() => { setSelected(r); completeForm.reset(); setCompleteOpen(true) }}>Complete</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
+          {r.status === 'pending' && <DropdownMenuItem onClick={() => progressMutation.mutate(r.id)}>{tr('Mark in progress')}</DropdownMenuItem>}
+          {r.status !== 'completed' && <DropdownMenuItem onClick={() => { setSelected(r); completeForm.reset(); setCompleteOpen(true) }}>{tr('Complete')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -93,7 +95,7 @@ export default function PDPAPage() {
       <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selected?.requestId ?? ''} subtitle={selected?.type}
         footer={
           <div className="flex gap-[10px]">
-            {selected?.status !== 'completed' && <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); completeForm.reset(); setCompleteOpen(true) }}>Complete</button>}
+            {selected?.status !== 'completed' && <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); completeForm.reset(); setCompleteOpen(true) }}>{tr('Complete')}</button>}
           </div>
         }
       >
@@ -107,12 +109,12 @@ export default function PDPAPage() {
               { label: 'Email', value: selected.user.email },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
+                <span className="text-gf-muted">{tr(r.label)}</span>
                 <span className="font-medium [text-transform:capitalize]">{r.value}</span>
               </div>
             ))}
             <div className="[margin-top:20px]">
-              <div className="text-[14px] font-semibold [margin-bottom:8px] text-gf-brown-900">Timeline</div>
+              <div className="text-[14px] font-semibold [margin-bottom:8px] text-gf-brown-900">{tr('Timeline')}</div>
               {[{ event: 'Request submitted', date: selected.submitted }, { event: 'Under review', date: selected.status !== 'pending' ? 'In progress' : '—' }, { event: 'Completed', date: selected.status === 'completed' ? 'Done' : '—' }].map(t => (
                 <div key={t.event} className="flex justify-between [padding:8px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                   <span>{t.event}</span>

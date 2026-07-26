@@ -3,9 +3,12 @@
    ============================================================ */
 
 export interface User {
+  id?: number;
   displayName: string;
   fullName: string;
   email: string;
+  phone?: string;
+  profileImageUrl?: string;
   role?: 'user' | 'admin';
   phoneVerified: boolean;
   emailVerified: boolean;
@@ -13,11 +16,7 @@ export interface User {
   suspended?: boolean;
 }
 
-export interface Address {
-  id: number;
-  label: string;
-  detail: string;
-}
+export type { Address } from './address';
 
 export interface Product {
   id: number;
@@ -27,6 +26,38 @@ export interface Product {
   deposit: number;
   color: string;
   rating: number;
+  category?: {
+    id: number;
+    name: string;
+  };
+  brand?: {
+    id: number;
+    name: string;
+  };
+  model?: string;
+  conditionNote?: string;
+  extraDetails?: string;
+  accessories?: Array<{
+    id: number;
+    name: string;
+    quantity: number;
+  }>;
+  media?: Array<{
+    id: number;
+    mediaType: 'image' | 'video';
+    url: string;
+    publicId?: string;
+    sortOrder: number;
+  }>;
+  owner?: {
+    displayName: string;
+    rating?: number;
+    verified?: boolean;
+  };
+  pickupArea?: {
+    district: string;
+    province: string;
+  };
   status?: 'pending' | 'approved' | 'active' | 'rejected' | 'hidden' | 'archived';
   unavailableDates?: string[];
 }
@@ -51,12 +82,18 @@ export interface BookingState {
 }
 
 export interface AddProductState {
-  name: string;
-  desc: string;
-  extra: string;
-  price: string;
-  deposit: string;
-  addressId: number | null;
+  title: string;
+  categoryId: number | null;
+  brandId: number | null;
+  model: string;
+  serialNumber: string;
+  description: string;
+  conditionNote: string;
+  extraDetails: string;
+  pricePerDay: string;
+  depositAmount: string;
+  pickupAddressId: number | null;
+  accessories: Array<{ accessoryId: number; quantity: number }>;
 }
 
 export interface TxnPayState {
@@ -67,6 +104,7 @@ export interface TxnPayState {
 export interface WalletTransaction {
   id: number;
   name: string;
+  kind?: 'payment';
   date: string;
   amt: number;
   status: string;

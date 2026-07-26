@@ -6,6 +6,8 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { translateText } from "@/lib/menuI18n"
+import { useAppStore } from "@/store/appStore"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -47,6 +49,8 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const locale = useAppStore((state) => state.locale)
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -72,7 +76,7 @@ function DialogContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{translateText(locale, "Close")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -90,6 +94,33 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+function DialogIconTitle({
+  icon,
+  iconClassName,
+  className,
+  children,
+  ...props
+}: DialogPrimitive.Title.Props & {
+  icon: React.ReactNode
+  iconClassName?: string
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-full bg-gf-pink-100 text-gf-brown-800",
+          iconClassName,
+        )}
+      >
+        {icon}
+      </span>
+      <DialogTitle className={cn("min-w-0", className)} {...props}>
+        {children}
+      </DialogTitle>
+    </div>
+  )
+}
+
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -102,7 +133,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 [&_[data-slot=dialog-close]]:mb-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -153,6 +184,7 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogIconTitle,
   DialogOverlay,
   DialogPortal,
   DialogTitle,

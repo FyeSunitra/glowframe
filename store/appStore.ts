@@ -13,8 +13,9 @@ const DEFAULT_USER: User = {
   displayName: '',
   fullName: '',
   email: '',
+  phone: '',
   role: 'user',
-  phoneVerified: true,
+  phoneVerified: false,
   emailVerified: true,
   idVerified: false,
   suspended: false,
@@ -31,12 +32,18 @@ const DEFAULT_BOOKING: BookingState = {
 };
 
 const DEFAULT_ADD_PRODUCT: AddProductState = {
-  name: '',
-  desc: '',
-  extra: '',
-  price: '',
-  deposit: '',
-  addressId: null,
+  title: '',
+  categoryId: null,
+  brandId: null,
+  model: '',
+  serialNumber: '',
+  description: '',
+  conditionNote: '',
+  extraDetails: '',
+  pricePerDay: '',
+  depositAmount: '',
+  pickupAddressId: null,
+  accessories: [],
 };
 
 interface AppStore {
@@ -46,12 +53,15 @@ interface AppStore {
   /* auth */
   isAuthenticated: boolean;
   user: User;
-  login: (email: string, displayName?: string) => void;
+  pendingSignupEmail: string;
+  setPendingSignupEmail: (email: string) => void;
+  login: (user: User) => void;
   logout: () => void;
   setUser: (patch: Partial<User>) => void;
 
   /* addresses */
   addresses: Address[];
+  setAddresses: (addresses: Address[]) => void;
   addAddress: (addr: Omit<Address, 'id'>) => void;
   removeAddress: (id: number) => void;
 
@@ -83,15 +93,12 @@ export const useAppStore = create<AppStore>()(
   /* ── auth ─────────────────────────────────────────────────── */
   isAuthenticated: false,
   user: DEFAULT_USER,
-  login: (email, displayName = 'You') =>
+  pendingSignupEmail: '',
+  setPendingSignupEmail: (email) => set({ pendingSignupEmail: email }),
+  login: (user) =>
     set({
       isAuthenticated: true,
-      user: {
-        ...DEFAULT_USER,
-        email,
-        displayName,
-        role: email.toLowerCase().includes('admin') ? 'admin' : 'user',
-      },
+      user: { ...DEFAULT_USER, ...user },
     }),
   logout: () =>
     set({ isAuthenticated: false, user: DEFAULT_USER }),
@@ -100,6 +107,7 @@ export const useAppStore = create<AppStore>()(
 
   /* ── addresses ───────────────────────────────────────────── */
   addresses: [],
+  setAddresses: (addresses) => set({ addresses }),
   addAddress: (addr) =>
     set((s) => ({
       addresses: [...s.addresses, { ...addr, id: Date.now() }],
@@ -133,7 +141,10 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'glowframe-menu-locale',
-      partialize: (state) => ({ locale: state.locale }),
+      partialize: (state) => ({
+        locale: state.locale,
+        pendingSignupEmail: state.pendingSignupEmail,
+      }),
     },
   ),
 );

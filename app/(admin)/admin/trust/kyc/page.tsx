@@ -1,132 +1,372 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { ShieldCheck, MoreHorizontal } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ImageOff, MoreHorizontal, ShieldCheck, ZoomIn } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
-import { FilterBar } from '@/components/admin/shared/FilterBar'
-import { DataTable } from '@/components/admin/shared/DataTable'
-import { StatusBadge } from '@/components/admin/shared/StatusBadge'
-import { EmptyState } from '@/components/admin/shared/EmptyState'
-import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
-import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { DataTable } from '@/components/admin/shared/DataTable'
+import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
+import { EmptyState } from '@/components/admin/shared/EmptyState'
+import { FilterBar } from '@/components/admin/shared/FilterBar'
+import { FormDialog } from '@/components/admin/shared/FormDialog'
+import { StatusBadge } from '@/components/admin/shared/StatusBadge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/useToast'
+import { unwrapApiResponse } from '@/lib/api'
+import { getPageText } from '@/lib/menuI18n'
+import { adminKycService } from '@/services/adminKyc'
+import { useAppStore } from '@/store/appStore'
+import type { AdminKycRequest, AdminKycStatus } from '@/types/adminKyc'
 
-interface KYCRequest { id: number; user: { displayName: string; email: string }; docType: string; submitted: string; retries: number; status: string }
-
-const STATUS_OPTIONS = [{ value: '', label: 'All' }, { value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }, { value: 'expired', label: 'Expired' }]
-
-const rejectSchema = z.object({ reason: z.string().min(1, 'Required'), retryAllowed: z.boolean() })
-type RejectForm = z.infer<typeof rejectSchema>
+type RejectForm = { reason: string }
 
 export default function KYCPage() {
+  const locale = useAppStore((state) => state.locale)
+  const t = getPageText(locale, 'adminKyc')
   const { showToast } = useToast()
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [selected, setSelected] = useState<KYCRequest | null>(null)
+  const [statusFilter, setStatusFilter] = useState<AdminKycStatus | ''>('')
+  const [selected, setSelected] = useState<AdminKycRequest | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [imageOpen, setImageOpen] = useState(false)
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
 
-  const filters = { search, status: statusFilter }
-  const { data: items = [], isLoading } = useQuery<KYCRequest[]>({
-    queryKey: ['admin', 'trust', 'kyc', filters],
-    queryFn: () => axios.get('/api/admin/trust/kyc', { params: filters }).then(r => r.data.data),
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['admin', 'trust', 'kyc', search, statusFilter],
+    queryFn: async () =>
+      unwrapApiResponse(
+        await adminKycService.list({ search, status: statusFilter }),
+      ),
   })
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'trust', 'kyc'] })
-  const approveMutation = useMutation({
-    mutationFn: (id: number) => axios.patch(`/api/admin/trust/kyc/${id}`, { action: 'approve' }),
-    onSuccess: () => { invalidate(); showToast('Identity verified') },
-  })
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) => axios.patch(`/api/admin/trust/kyc/${id}`, { action: 'reject', reason }),
-    onSuccess: () => { invalidate(); showToast('Verification rejected') },
-  })
-  const rejectForm = useForm<RejectForm>({ resolver: zodResolver(rejectSchema), defaultValues: { retryAllowed: true } })
 
-  const COLUMNS = [
-    { key: 'user', header: 'User', render: (r: KYCRequest) => (
-      <span className="cursor-pointer" onClick={() => { setSelected(r); setDrawerOpen(true) }}>
-        <div className="font-semibold text-[13px]">{r.user.displayName}</div>
-        <div className="text-[12px] text-gf-muted">{r.user.email}</div>
-      </span>
-    )},
-    { key: 'docType', header: 'Document type', render: (r: KYCRequest) => r.docType },
-    { key: 'submitted', header: 'Submitted', render: (r: KYCRequest) => <span className="text-[12.5px] text-gf-muted">{r.submitted}</span> },
-    { key: 'retries', header: 'Retries', render: (r: KYCRequest) => r.retries },
-    { key: 'status', header: 'Status', render: (r: KYCRequest) => <StatusBadge status={r.status} /> },
-    { key: 'actions', header: '', render: (r: KYCRequest) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}>
-          <MoreHorizontal size={16} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>Review</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setApproveOpen(true) }}>Approve</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); rejectForm.reset({ retryAllowed: true }); setRejectOpen(true) }}>Reject</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )},
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['admin', 'trust', 'kyc'] })
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) =>
+      unwrapApiResponse(await adminKycService.review(id, { action: 'approve' })),
+    onSuccess: () => {
+      void invalidate()
+      setDrawerOpen(false)
+      showToast(t.verifiedToast)
+    },
+    onError: (error) => showToast(error.message || t.reviewFailed),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
+      unwrapApiResponse(
+        await adminKycService.review(id, { action: 'reject', reason }),
+      ),
+    onSuccess: () => {
+      void invalidate()
+      setDrawerOpen(false)
+      showToast(t.rejectedToast)
+    },
+    onError: (error) => showToast(error.message || t.reviewFailed),
+  })
+
+  const rejectSchema = z.object({
+    reason: z.string().trim().min(1, t.required),
+  })
+  const rejectForm = useForm<RejectForm>({
+    resolver: zodResolver(rejectSchema),
+    defaultValues: { reason: '' },
+  })
+
+  const statusOptions = [
+    { value: '', label: t.all },
+    { value: 'pending', label: t.pending },
+    { value: 'approved', label: t.approved },
+    { value: 'rejected', label: t.rejected },
+  ]
+
+  const formatDate = (value: string) =>
+    new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value))
+
+  function openReview(item: AdminKycRequest) {
+    setSelected(item)
+    setDrawerOpen(true)
+  }
+
+  const columns = [
+    {
+      key: 'user',
+      header: t.user,
+      render: (item: AdminKycRequest) => (
+        <button
+          type="button"
+          onClick={() => openReview(item)}
+          className="border-0 bg-transparent p-0 text-left"
+        >
+          <span className="block text-[13px] font-semibold">{item.user.displayName}</span>
+          <span className="block text-[12px] text-gf-muted">{item.user.email}</span>
+        </button>
+      ),
+    },
+    {
+      key: 'documentType',
+      header: t.documentType,
+      render: () => t.nationalId,
+    },
+    {
+      key: 'submitted',
+      header: t.submitted,
+      render: (item: AdminKycRequest) => (
+        <span className="text-[12.5px] text-gf-muted">
+          {formatDate(item.submittedAt)}
+        </span>
+      ),
+    },
+    {
+      key: 'retries',
+      header: t.retries,
+      render: (item: AdminKycRequest) => item.retryCount,
+    },
+    {
+      key: 'status',
+      header: t.status,
+      render: (item: AdminKycRequest) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: AdminKycRequest) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t.actions}
+            className="cursor-pointer rounded-[8px] border-0 bg-transparent px-2 py-1 text-gf-brown-700"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <MoreHorizontal size={16} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end">
+            <DropdownMenuItem onClick={() => openReview(item)}>
+              {t.review}
+            </DropdownMenuItem>
+            {item.status === 'pending' ? (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelected(item)
+                    setApproveOpen(true)
+                  }}
+                >
+                  {t.approve}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    setSelected(item)
+                    rejectForm.reset({ reason: '' })
+                    setRejectOpen(true)
+                  }}
+                >
+                  {t.reject}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ]
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Trust & Safety', 'KYC']} title="Identity Verification" />
-      <FilterBar
-        search={{ placeholder: 'Search user…', value: search, onChange: setSearch }}
-        selects={[{ label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS }]}
+      <AdminPageHeader
+        breadcrumb={['Admin', t.trustSafety, t.breadcrumb]}
+        title={t.title}
       />
-      <DataTable columns={COLUMNS} data={items} loading={isLoading} empty={<EmptyState icon={ShieldCheck} heading="No pending verifications" sub="Submitted ID documents will appear here." />} />
+      <FilterBar
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
+        selects={[
+          {
+            label: t.status,
+            value: statusFilter,
+            onChange: (value) => setStatusFilter(value as AdminKycStatus | ''),
+            options: statusOptions,
+          },
+        ]}
+      />
+      <DataTable
+        columns={columns}
+        data={items}
+        loading={isLoading}
+        empty={
+          <EmptyState
+            icon={ShieldCheck}
+            heading={t.noPending}
+            sub={t.emptySub}
+          />
+        }
+      />
 
-      <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selected?.user.displayName ?? ''} subtitle={selected?.docType}
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selected?.user.displayName ?? ''}
+        subtitle={selected?.status}
         footer={
-          <div className="flex gap-[10px]">
-            <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); setApproveOpen(true) }}>Approve</button>
-            <button className="flex-1 bg-gf-red text-white border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); rejectForm.reset({ retryAllowed: true }); setRejectOpen(true) }}>Reject</button>
-          </div>
+          selected?.status === 'pending' ? (
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                className="flex-1 rounded-full border-0 bg-gf-pink-500 py-3 font-semibold text-gf-brown-900"
+                onClick={() => {
+                  setDrawerOpen(false)
+                  setApproveOpen(true)
+                }}
+              >
+                {t.approve}
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-full border-0 bg-gf-red py-3 font-semibold text-white"
+                onClick={() => {
+                  setDrawerOpen(false)
+                  rejectForm.reset({ reason: '' })
+                  setRejectOpen(true)
+                }}
+              >
+                {t.reject}
+              </button>
+            </div>
+          ) : undefined
         }
       >
-        {selected && (
+        {selected ? (
           <div>
-            <div className="bg-gf-pink-100 rounded-[14px] h-[180px] flex items-center justify-center [margin-bottom:16px] text-[13px] text-gf-muted">
-              [Document image — {selected.docType}]
-            </div>
-            <div className="bg-gf-pink-100 rounded-[14px] h-[140px] flex items-center justify-center [margin-bottom:20px] text-[13px] text-gf-muted">
-              [Selfie image]
-            </div>
+            {selected.documentUrl ? (
+              <button
+                type="button"
+                onClick={() => setImageOpen(true)}
+                className="group relative mb-5 block w-full overflow-hidden rounded-[8px] border border-gf-line bg-gf-pink-100 p-0"
+              >
+                {/* Signed private URL; the original storage path is never exposed here. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selected.documentUrl}
+                  alt={t.documentImage}
+                  className="aspect-[1.586/1] w-full object-contain"
+                />
+                <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-2 text-[12px] font-semibold text-gf-brown-900 shadow-sm">
+                  <ZoomIn size={15} />
+                  {t.clickToEnlarge}
+                </span>
+              </button>
+            ) : (
+              <div className="mb-5 flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-[8px] bg-gf-pink-100 text-[13px] text-gf-muted">
+                <ImageOff size={28} />
+                {t.documentUnavailable}
+              </div>
+            )}
+
             {[
-              { label: 'Full name', value: selected.user.displayName },
-              { label: 'Email', value: selected.user.email },
-              { label: 'Submitted', value: selected.submitted },
-              { label: 'Retries', value: selected.retries },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
-                <span className="font-medium">{r.value}</span>
+              { label: t.fullName, value: selected.legalName },
+              { label: t.email, value: selected.user.email },
+              { label: t.documentType, value: t.nationalId },
+              { label: t.submitted, value: formatDate(selected.submittedAt) },
+              { label: t.retries, value: selected.retryCount },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="flex justify-between gap-5 border-b border-gf-line py-2.5 text-[13px]"
+              >
+                <span className="text-gf-muted">{row.label}</span>
+                <span className="text-right font-medium">{row.value}</span>
               </div>
             ))}
+
+            {selected.rejectionReason ? (
+              <div className="mt-4 rounded-[8px] bg-[#FFF1F1] p-4 text-[13px] leading-6 text-gf-brown-800">
+                <strong className="block text-gf-red">{t.reason}</strong>
+                {selected.rejectionReason}
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
       </DetailDrawer>
 
-      <ConfirmDialog open={approveOpen} onOpenChange={setApproveOpen} title="Approve identity verification?" description="The user will be marked as ID-verified and can list cameras." onConfirm={() => { if (selected) approveMutation.mutate(selected.id); setApproveOpen(false) }} />
+      <Dialog open={imageOpen} onOpenChange={setImageOpen}>
+        <DialogContent className="max-h-[94vh] w-[min(1100px,calc(100vw-24px))] max-w-none overflow-hidden p-4 sm:max-w-none">
+          <DialogHeader className="pr-10">
+            <DialogTitle>{t.imagePreview}</DialogTitle>
+            <DialogDescription>
+              {selected?.legalName ?? selected?.user.displayName ?? ''}
+            </DialogDescription>
+          </DialogHeader>
+          {selected?.documentUrl ? (
+            <div className="flex max-h-[calc(94vh-90px)] min-h-[260px] items-center justify-center overflow-auto rounded-[8px] bg-gf-pink-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selected.documentUrl}
+                alt={t.imagePreview}
+                className="max-h-[calc(94vh-110px)] max-w-full object-contain"
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
-      <FormDialog open={rejectOpen} onOpenChange={setRejectOpen} title="Reject Verification" submitLabel="Reject" onSubmit={rejectForm.handleSubmit(data => { if (selected) rejectMutation.mutate({ id: selected.id, reason: data.reason }); setRejectOpen(false) })}>
-        <form className="flex flex-col gap-[12px]">
-          <div><Label>Rejection reason</Label><Textarea {...rejectForm.register('reason')} placeholder="Explain why the document was rejected…" className="[margin-top:6px]" /></div>
-          <label className="flex items-center gap-[8px] text-[13px]">
-            <input type="checkbox" {...rejectForm.register('retryAllowed')} />
-            Allow user to retry
-          </label>
+      <ConfirmDialog
+        open={approveOpen}
+        onOpenChange={setApproveOpen}
+        title={t.approveTitle}
+        description={t.approveDescription}
+        onConfirm={() => {
+          if (selected) approveMutation.mutate(selected.id)
+          setApproveOpen(false)
+        }}
+      />
+
+      <FormDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title={t.rejectTitle}
+        submitLabel={t.reject}
+        onSubmit={rejectForm.handleSubmit((data) => {
+          if (selected) rejectMutation.mutate({ id: selected.id, reason: data.reason })
+          setRejectOpen(false)
+        })}
+      >
+        <form className="flex flex-col gap-3">
+          <div>
+            <Label>{t.reason}</Label>
+            <Textarea
+              {...rejectForm.register('reason')}
+              placeholder={t.reasonPlaceholder}
+              className="mt-1.5"
+            />
+            {rejectForm.formState.errors.reason ? (
+              <p className="mt-1 text-[12px] text-gf-red">
+                {rejectForm.formState.errors.reason.message}
+              </p>
+            ) : null}
+          </div>
         </form>
       </FormDialog>
     </div>

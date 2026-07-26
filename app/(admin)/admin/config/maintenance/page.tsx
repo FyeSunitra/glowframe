@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { useState } from 'react'
 import { useToast } from '@/hooks/useToast'
 import { cn } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface MaintenanceConfig { enabled: boolean; message: string; estimatedDate: string; estimatedTime: string; ipWhitelist: string }
 
@@ -27,6 +28,7 @@ const schema = z.object({
 type MaintForm = z.infer<typeof schema>
 
 export default function MaintenancePage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [toggleOpen, setToggleOpen] = useState(false)
@@ -38,11 +40,11 @@ export default function MaintenancePage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'config', 'maintenance'] })
   const saveMutation = useMutation({
     mutationFn: (data: Partial<MaintenanceConfig>) => axios.patch('/api/admin/config/maintenance', data),
-    onSuccess: () => { invalidate(); showToast('Settings saved') },
+    onSuccess: () => { invalidate(); showToast(tr('Settings saved')) },
   })
   const toggleMutation = useMutation({
     mutationFn: (enabled: boolean) => axios.patch('/api/admin/config/maintenance', { enabled }),
-    onSuccess: () => { invalidate(); showToast(config?.enabled ? 'Maintenance mode disabled' : 'Maintenance mode enabled') },
+    onSuccess: () => { invalidate(); showToast(tr(config?.enabled ? 'Maintenance mode disabled' : 'Maintenance mode enabled')) },
   })
 
   const form = useForm<MaintForm>({
@@ -58,12 +60,12 @@ export default function MaintenancePage() {
 
       <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
         <div className="text-[16px] font-bold text-gf-brown-900 font-[var(--font-poppins)] [margin-bottom:16px]">
-          Maintenance Mode
+          {tr('Maintenance Mode')}
         </div>
         <div className="flex items-center gap-[14px] [margin-bottom:20px]">
           <StatusBadge status={isOn ? 'rejected' : 'active'} />
           <span className={cn('text-[15px] font-semibold', isOn ? 'text-gf-red' : 'text-gf-green')}>
-            {isOn ? 'ON — Site is offline for users' : 'OFF — Site is live'}
+            {tr(isOn ? 'ON — Site is offline for users' : 'OFF — Site is live')}
           </span>
         </div>
         <button
@@ -73,7 +75,7 @@ export default function MaintenancePage() {
             isOn ? 'bg-gf-green' : 'bg-gf-red',
           )}
         >
-          {isOn ? 'Disable Maintenance Mode' : 'Enable Maintenance Mode'}
+          {tr(isOn ? 'Disable Maintenance Mode' : 'Enable Maintenance Mode')}
         </button>
 
         <Separator className="[margin:24px_0]" />
@@ -96,7 +98,7 @@ export default function MaintenancePage() {
           </div>
           <div>
             <button type="submit" className="bg-gf-pink-500 text-gf-brown-900 rounded-full [padding:11px_22px] font-semibold border-0 cursor-pointer">
-              Save settings
+              {tr('Save settings')}
             </button>
           </div>
         </form>

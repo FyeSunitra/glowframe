@@ -1,24 +1,53 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AdminTopbar } from '@/components/admin/layout/AdminTopbar'
 import { AdminSidebar } from '@/components/admin/layout/AdminSidebar'
 import { useAppStore } from '@/store/appStore'
+import { authService } from '@/services/auth'
+import { getPageText } from '@/lib/menuI18n'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAppStore((s) => ({
-    isAuthenticated: s.isAuthenticated,
-    user: s.user,
-  }))
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
+  const login = useAppStore((state) => state.login)
+  const logout = useAppStore((state) => state.logout)
+  const locale = useAppStore((state) => state.locale)
   const router = useRouter()
-  const canAccessAdmin = isAuthenticated && user.role === 'admin'
+  const loadingText = getPageText(locale, 'catalog').loading
 
-  // useEffect(() => {
-  //   if (!canAccessAdmin) router.replace('/login')
-  // }, [canAccessAdmin, router])
+  useEffect(() => {
+    let active = true
 
-  // if (!canAccessAdmin) return null
+    async function hydrateSession() {
+      const result = await authService.session()
+      if (!active) return
+
+      if (!result.success) {
+        logout()
+        router.replace('/login')
+      } else if (result.data.user.role !== 'admin') {
+        login(result.data.user)
+        router.replace('/home')
+      } else {
+        login(result.data.user)
+      }
+      setIsCheckingSession(false)
+    }
+
+    void hydrateSession()
+    return () => {
+      active = false
+    }
+  }, [login, logout, router])
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gf-cream text-sm text-gf-muted">
+        {loadingText}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gf-cream">

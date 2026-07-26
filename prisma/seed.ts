@@ -60,6 +60,20 @@ async function main() {
     ),
   );
 
+  const platformBank = await prisma.bank.findUnique({
+    where: { code: "004" },
+  });
+
+  await prisma.platformSetting.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      platformBankId: platformBank?.id,
+      supportedBanks: banks.map((bank) => bank.name).join(", "),
+    },
+  });
+
   const admin = await prisma.user.upsert({
     where: { email: "admin@glowframe.test" },
     update: {
@@ -69,7 +83,6 @@ async function main() {
     },
     create: {
       email: "admin@glowframe.test",
-      passwordHash: "prototype-admin-password-hash",
       displayName: "GlowFrame Admin",
       fullName: "GlowFrame Admin",
       role: UserRole.admin,
@@ -85,7 +98,6 @@ async function main() {
     },
     create: {
       email: "owner@glowframe.test",
-      passwordHash: "prototype-user-password-hash",
       displayName: "MVP Camera Owner",
       fullName: "MVP Camera Owner",
       phone: "0800000000",

@@ -20,6 +20,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface AdminTransaction {
   id: number
@@ -37,32 +39,19 @@ interface AdminTransaction {
   proofFile?: string
 }
 
-const METHOD_OPTIONS = [
-  { value: '', label: 'All methods' },
-  { value: 'qr', label: 'Thai QR' },
-  { value: 'card', label: 'VISA/Mastercard' },
-]
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'pending_review', label: 'Payment review' },
-  { value: 'refunded', label: 'Refunded' },
-  { value: 'failed', label: 'Failed' },
-]
+type RefundForm = { reason: string }
 
-const refundSchema = z.object({ reason: z.string().min(1, 'Reason is required') })
-type RefundForm = z.infer<typeof refundSchema>
-
-function MethodCell({ method }: { method: string }) {
+function MethodCell({ method, qrLabel, cardLabel }: { method: string; qrLabel: string; cardLabel: string }) {
   return (
     <span className="flex items-center gap-[6px]">
       {method === 'qr' ? <QrCode size={14} /> : <CreditCard size={14} />}
-      {method === 'qr' ? 'Thai QR' : 'VISA/Mastercard'}
+      {method === 'qr' ? qrLabel : cardLabel}
     </span>
   )
 }
 
 export default function TransactionsPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminTransactions')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
@@ -86,7 +75,7 @@ export default function TransactionsPage() {
       axios.post(`/api/admin/transactions/${id}/refund`, { reason }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] })
-      showToast('Refund issued')
+      showToast(t.refundIssued)
     },
   })
   const evidenceMutation = useMutation({
@@ -94,40 +83,53 @@ export default function TransactionsPage() {
       axios.patch(`/api/admin/transactions/${id}`, { action }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] })
-      showToast('Payment evidence reviewed')
+      showToast(t.evidenceReviewed)
     },
   })
 
+  const refundSchema = z.object({ reason: z.string().trim().min(1, t.reasonRequired) })
   const refundForm = useForm<RefundForm>({ resolver: zodResolver(refundSchema) })
+  const methodOptions = [
+    { value: '', label: t.allMethods },
+    { value: 'qr', label: t.thaiQr },
+    { value: 'card', label: t.card },
+  ]
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    { value: 'paid', label: t.paid },
+    { value: 'pending_review', label: t.paymentReview },
+    { value: 'refunded', label: t.refunded },
+    { value: 'failed', label: t.failed },
+  ]
 
   const COLUMNS = [
-    { key: 'txnId', header: 'Txn ID', render: (row: AdminTransaction) => (
+    { key: 'txnId', header: t.txnId, render: (row: AdminTransaction) => (
       <span className="font-[var(--font-poppins)] font-semibold text-[12px]">{row.txnId}</span>
     )},
-    { key: 'bookingNo', header: 'Booking #', render: (row: AdminTransaction) => row.bookingNo },
-    { key: 'user', header: 'User', render: (row: AdminTransaction) => row.user.displayName },
-    { key: 'method', header: 'Method', render: (row: AdminTransaction) => <MethodCell method={row.method} /> },
-    { key: 'rental', header: 'Rental', render: (row: AdminTransaction) => `${money(row.rentalFee)} THB` },
-    { key: 'delivery', header: 'Delivery', render: (row: AdminTransaction) => `${money(row.deliveryFee)} THB` },
-    { key: 'total', header: 'Total', render: (row: AdminTransaction) => `${money(row.total)} THB` },
-    { key: 'platform', header: 'Platform fee', render: (row: AdminTransaction) => `${money(row.platformFee)} THB` },
-    { key: 'date', header: 'Date', render: (row: AdminTransaction) => <span className="text-[12.5px] text-gf-muted">{row.date}</span> },
-    { key: 'status', header: 'Status', render: (row: AdminTransaction) => <StatusBadge status={row.status} /> },
+    { key: 'bookingNo', header: t.bookingNo, render: (row: AdminTransaction) => row.bookingNo },
+    { key: 'user', header: t.user, render: (row: AdminTransaction) => row.user.displayName },
+    { key: 'method', header: t.method, render: (row: AdminTransaction) => <MethodCell method={row.method} qrLabel={t.thaiQr} cardLabel={t.card} /> },
+    { key: 'rental', header: t.rental, render: (row: AdminTransaction) => `${money(row.rentalFee)} THB` },
+    { key: 'delivery', header: t.delivery, render: (row: AdminTransaction) => `${money(row.deliveryFee)} THB` },
+    { key: 'total', header: t.total, render: (row: AdminTransaction) => `${money(row.total)} THB` },
+    { key: 'platform', header: t.platformFee, render: (row: AdminTransaction) => `${money(row.platformFee)} THB` },
+    { key: 'date', header: t.date, render: (row: AdminTransaction) => <span className="text-[12.5px] text-gf-muted">{row.date}</span> },
+    { key: 'status', header: t.status, render: (row: AdminTransaction) => <StatusBadge status={row.status} /> },
     { key: 'actions', header: '', render: (row: AdminTransaction) => (
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={(e) => e.stopPropagation()}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>View</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>{t.view}</DropdownMenuItem>
           {row.status === 'pending_review' && (
-            <DropdownMenuItem onClick={() => evidenceMutation.mutate({ id: row.id, action: 'approve_payment' })}>Approve payment evidence</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => evidenceMutation.mutate({ id: row.id, action: 'approve_payment' })}>{t.approveEvidence}</DropdownMenuItem>
           )}
           {row.status === 'pending_review' && (
-            <DropdownMenuItem variant="destructive" onClick={() => evidenceMutation.mutate({ id: row.id, action: 'reject_payment' })}>Reject payment evidence</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => evidenceMutation.mutate({ id: row.id, action: 'reject_payment' })}>{t.rejectEvidence}</DropdownMenuItem>
           )}
           {row.status === 'paid' && (
-            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); refundForm.reset(); setRefundOpen(true) }}>Refund</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); refundForm.reset(); setRefundOpen(true) }}>{t.refund}</DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -137,26 +139,26 @@ export default function TransactionsPage() {
   return (
     <div className="animate-fade-up">
       <AdminPageHeader
-        breadcrumb={['Admin', 'Transactions']}
-        title="Transactions"
+        breadcrumb={['Admin', t.title]}
+        title={t.title}
         action={
           <button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">
-            Export CSV
+            {t.exportCsv}
           </button>
         }
       />
       <FilterBar
-        search={{ placeholder: 'Search by Txn ID or Booking #…', value: search, onChange: setSearch }}
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
         selects={[
-          { label: 'Method', value: methodFilter, onChange: setMethodFilter, options: METHOD_OPTIONS },
-          { label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
+          { label: t.method, value: methodFilter, onChange: setMethodFilter, options: methodOptions },
+          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
         ]}
       />
       <DataTable
         columns={COLUMNS}
         data={transactions}
         loading={isLoading}
-        empty={<EmptyState icon={CreditCard} heading="No transactions yet" sub="Transactions appear here once payments are processed." />}
+        empty={<EmptyState icon={CreditCard} heading={t.noTransactions} sub={t.noTransactionsSub} />}
       />
 
       <DetailDrawer
@@ -167,7 +169,7 @@ export default function TransactionsPage() {
         footer={selected?.status === 'paid' ? (
           <button className="bg-gf-red text-white border-0 rounded-full [padding:11px_22px] font-semibold cursor-pointer w-full"
             onClick={() => { setDrawerOpen(false); refundForm.reset(); setRefundOpen(true) }}>
-            Issue Refund
+            {t.issueRefund}
           </button>
         ) : undefined}
       >
@@ -177,13 +179,13 @@ export default function TransactionsPage() {
               <span className="font-[var(--font-poppins)] font-bold text-[16px]">{selected.txnId}</span>
               <StatusBadge status={selected.status} />
             </div>
-            <div className="[margin-bottom:20px]"><MethodCell method={selected.method} /></div>
+            <div className="[margin-bottom:20px]"><MethodCell method={selected.method} qrLabel={t.thaiQr} cardLabel={t.card} /></div>
             {[
-              { label: 'Rental fee', value: `${money(selected.rentalFee)} THB` },
-              { label: 'Delivery fee', value: `${money(selected.deliveryFee)} THB` },
-              { label: 'Security deposit', value: `${money(selected.deposit ?? 0)} THB` },
-              { label: 'Platform fee', value: `${money(selected.platformFee)} THB` },
-              { label: 'Total', value: `${money(selected.total)} THB`, bold: true },
+              { label: t.rental, value: `${money(selected.rentalFee)} THB` },
+              { label: t.delivery, value: `${money(selected.deliveryFee)} THB` },
+              { label: t.securityDeposit, value: `${money(selected.deposit ?? 0)} THB` },
+              { label: t.platformFee, value: `${money(selected.platformFee)} THB` },
+              { label: t.total, value: `${money(selected.total)} THB`, bold: true },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
@@ -192,26 +194,26 @@ export default function TransactionsPage() {
             ))}
             <div className="[margin-top:20px]">
               <div className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">Booking</span>
+                <span className="text-gf-muted">{t.booking}</span>
                 <span className="font-[var(--font-poppins)] font-semibold [padding:2px_10px] rounded-full bg-gf-pink-100 text-gf-brown-900 text-[12px]">
                   #{selected.bookingNo}
                 </span>
               </div>
               <div className="flex justify-between [padding:10px_0] text-[13px]">
-                <span className="text-gf-muted">User</span>
+                <span className="text-gf-muted">{t.user}</span>
                 <span className="font-medium">{selected.user.displayName}</span>
               </div>
               <div className="flex justify-between [padding:10px_0] text-[13px] [border-top:1px_solid_var(--gf-line)]">
-                <span className="text-gf-muted">Payment proof</span>
-                <span className="font-medium">{selected.proofFile ?? 'No proof uploaded'}</span>
+                <span className="text-gf-muted">{t.paymentProof}</span>
+                <span className="font-medium">{selected.proofFile ?? t.noProof}</span>
               </div>
               {selected.status === 'pending_review' && (
                 <div className="flex gap-[10px] [margin-top:18px]">
                   <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => evidenceMutation.mutate({ id: selected.id, action: 'approve_payment' })}>
-                    Approve evidence
+                    {t.approveEvidence}
                   </button>
                   <button className="flex-1 bg-gf-red text-white border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => evidenceMutation.mutate({ id: selected.id, action: 'reject_payment' })}>
-                    Reject
+                    {t.reject}
                   </button>
                 </div>
               )}
@@ -223,8 +225,8 @@ export default function TransactionsPage() {
       <FormDialog
         open={refundOpen}
         onOpenChange={setRefundOpen}
-        title="Issue Refund"
-        submitLabel="Confirm refund"
+        title={t.refundTitle}
+        submitLabel={t.confirmRefund}
         onSubmit={refundForm.handleSubmit((data) => {
           setRefundOpen(false)
           setConfirmOpen(true)
@@ -232,8 +234,8 @@ export default function TransactionsPage() {
         })}
       >
         <form>
-          <Label>Reason for refund</Label>
-          <Textarea {...refundForm.register('reason')} placeholder="Explain why this refund is being issued…" className="[margin-top:6px]" />
+          <Label>{t.refundReason}</Label>
+          <Textarea {...refundForm.register('reason')} placeholder={t.refundPlaceholder} className="[margin-top:6px]" />
           {refundForm.formState.errors.reason && (
             <span className="text-[12px] text-gf-red [margin-top:4px] block">
               {refundForm.formState.errors.reason.message}
@@ -245,8 +247,8 @@ export default function TransactionsPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Confirm refund?"
-        description="The full amount will be refunded to the customer."
+        title={t.confirmTitle}
+        description={t.confirmDescription}
         destructive
         onConfirm={() => {
           if (selected) refundMutation.mutate({ id: selected.id, reason: refundForm.getValues('reason') })

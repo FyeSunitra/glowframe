@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface EmailTemplate { id: number; key: string; name: string; subject: string; lastEdited: string; lastEditedBy: string }
 
@@ -36,6 +37,7 @@ const VARIABLES: Record<string, string[]> = {
 }
 
 export default function EmailTemplatesPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [editTarget, setEditTarget] = useState<EmailTemplate | null>(null)
@@ -49,7 +51,7 @@ export default function EmailTemplatesPage() {
   })
   const saveMutation = useMutation({
     mutationFn: (data: EditForm & { id: number }) => axios.patch(`/api/admin/comms/email-templates/${data.id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'comms', 'email-templates'] }); showToast('Template saved') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'comms', 'email-templates'] }); showToast(tr('Template saved')) },
   })
 
   const editForm = useForm<EditForm>({ resolver: zodResolver(editSchema) })
@@ -75,9 +77,9 @@ export default function EmailTemplatesPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setEditTarget(r); editForm.reset({ subject: r.subject, body: '' }); setEditOpen(true) }}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setEditTarget(r); setPreviewOpen(true) }}>Preview</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setEditTarget(r); testForm.reset(); setTestOpen(true) }}>Send test</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setEditTarget(r); editForm.reset({ subject: r.subject, body: '' }); setEditOpen(true) }}>{tr('Edit')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setEditTarget(r); setPreviewOpen(true) }}>{tr('Preview')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setEditTarget(r); testForm.reset(); setTestOpen(true) }}>{tr('Send test')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -110,12 +112,12 @@ export default function EmailTemplatesPage() {
 
       <FormDialog open={previewOpen} onOpenChange={setPreviewOpen} title={`Preview — ${editTarget?.name}`} submitLabel="Close" onSubmit={() => setPreviewOpen(false)}>
         <div className="bg-gf-pink-100 rounded-[14px] [padding:20px] text-[13px] [line-height:1.8]">
-          <strong>Subject:</strong> {editTarget?.subject}<br /><br />
+          <strong>{tr('Subject')}:</strong> {editTarget?.subject}<br /><br />
           [Rendered email preview would appear here]
         </div>
       </FormDialog>
 
-      <FormDialog open={testOpen} onOpenChange={setTestOpen} title="Send Test Email" submitLabel="Send" onSubmit={testForm.handleSubmit(() => { showToast('Test email sent'); setTestOpen(false) })}>
+      <FormDialog open={testOpen} onOpenChange={setTestOpen} title="Send Test Email" submitLabel="Send" onSubmit={testForm.handleSubmit(() => { showToast(tr('Test email sent')); setTestOpen(false) })}>
         <form><Label>Send test to</Label><Input type="email" {...testForm.register('email')} placeholder="you@example.com" className="[margin-top:6px]" /></form>
       </FormDialog>
     </div>

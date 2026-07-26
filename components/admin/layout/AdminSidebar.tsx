@@ -8,11 +8,13 @@ import {
   Scale,
   FileText,
   ClipboardList,
+  Layers3,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
 import { getMenuText } from '@/lib/menuI18n';
 import { cn } from '@/lib/utils';
+import { authService } from '@/services/auth';
 
 const SECTIONS = [
   {
@@ -94,8 +96,9 @@ const SECTIONS = [
   {
     labelKey: 'masterData',
     items: [
-      { href: '/admin/master/brands',      labelKey: 'cameraBrands', icon: Tag     },
-      { href: '/admin/master/accessories', labelKey: 'accessories',  icon: Package },
+      { href: '/admin/master/brands',      labelKey: 'cameraBrands',     icon: Tag     },
+      { href: '/admin/master/categories',  labelKey: 'cameraCategories', icon: Layers3 },
+      { href: '/admin/master/accessories', labelKey: 'accessories',      icon: Package },
     ],
   },
   {
@@ -118,9 +121,11 @@ export function AdminSidebar() {
   const router = useRouter();
   const active = activeKey(pathname);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await authService.logout();
     logout();
-    router.push('/login');
+    router.replace('/login');
+    router.refresh();
   }
 
   return (
@@ -159,7 +164,7 @@ export function AdminSidebar() {
       <div className="h-[1px] bg-gf-line [margin:6px_6px]" />
 
       <button
-        onClick={handleLogout}
+        onClick={() => void handleLogout()}
         className="flex items-center gap-[11px] [padding:10px_16px] rounded-[14px] text-gf-brown-700 font-medium text-[14px] bg-transparent border-0 cursor-pointer text-left"
       >
         <LogOut size={17} className="shrink-0" />

@@ -10,7 +10,7 @@ import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
-import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -21,11 +21,16 @@ import { unwrapApiResponse } from '@/lib/api'
 import { masterDataService } from '@/services/masterData'
 import type { Accessory } from '@/types/masterData'
 import { cn } from '@/lib/utils'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
-const accSchema = z.object({ name: z.string().min(1, 'Accessory name is required') })
-type AccForm = z.infer<typeof accSchema>
+type AccForm = { name: string }
 
 export default function AccessoriesPage() {
+  const locale = useAppStore((state) => state.locale)
+  const masterText = getPageText(locale, 'adminMasterData')
+  const t = masterText.accessories
+  const accSchema = z.object({ name: z.string().trim().min(1, t.required) })
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [editTarget, setEditTarget] = useState<Accessory | null>(null)
@@ -46,28 +51,28 @@ export default function AccessoriesPage() {
         ? masterDataService.accessories.update(id, body).then(unwrapApiResponse)
         : masterDataService.accessories.create(body).then(unwrapApiResponse)
     },
-    onSuccess: () => { invalidate(); showToast('Accessory saved') },
+    onSuccess: () => { invalidate(); showToast(t.saved) },
   })
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) =>
       masterDataService.accessories.update(id, { active }).then(unwrapApiResponse),
-    onSuccess: (_, vars) => { invalidate(); showToast(vars.active ? 'Accessory activated' : 'Accessory deactivated') },
+    onSuccess: (_, vars) => { invalidate(); showToast(vars.active ? t.activated : t.deactivated) },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => masterDataService.accessories.delete(id).then(unwrapApiResponse),
-    onSuccess: () => { invalidate(); showToast('Accessory deleted') },
+    onSuccess: () => { invalidate(); showToast(t.deleted) },
   })
 
   const form = useForm<AccForm>({ resolver: zodResolver(accSchema) })
 
   const COLUMNS = [
-    { key: 'name', header: 'Accessory name', render: (r: Accessory) => (
+    { key: 'name', header: t.name, render: (r: Accessory) => (
       <span className="font-semibold">{r.name}</span>
     )},
-    { key: 'usedInListings', header: 'Used in listings', render: (r: Accessory) => r.usedInListings },
-    { key: 'active', header: 'Active', render: (r: Accessory) => (
+    { key: 'usedInListings', header: masterText.usedInListings, render: (r: Accessory) => r.usedInListings },
+    { key: 'active', header: masterText.active, render: (r: Accessory) => (
       <button
         onClick={() => toggleMutation.mutate({ id: r.id, active: !r.active })}
         className={cn(
@@ -76,7 +81,7 @@ export default function AccessoriesPage() {
         )}
       >
         <span className="w-[8px] h-[8px] rounded-full bg-white inline-block" />
-        {r.active ? 'On' : 'Off'}
+        {r.active ? masterText.on : masterText.off}
       </button>
     )},
     { key: 'actions', header: '', render: (r: Accessory) => (
@@ -93,19 +98,19 @@ export default function AccessoriesPage() {
             form.reset({ name: r.name })
             setFormOpen(true)
           }}>
-            Edit
+            {masterText.edit}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => toggleMutation.mutate({ id: r.id, active: !r.active })}
           >
-            {r.active ? 'Deactivate' : 'Activate'}
+            {r.active ? masterText.deactivate : masterText.activate}
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setDeleteTarget(r)}
             className={cn(r.usedInListings > 0 && 'pointer-events-none opacity-40')}
           >
-            Delete
+            {masterText.delete}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -115,14 +120,14 @@ export default function AccessoriesPage() {
   return (
     <div className="animate-fade-up">
       <AdminPageHeader
-        breadcrumb={['Admin', 'Master Data', 'Accessories']}
-        title="Accessories"
+        breadcrumb={['Admin', masterText.breadcrumb, t.title]}
+        title={t.title}
         action={
           <button
             onClick={() => { setEditTarget(null); form.reset({ name: '' }); setFormOpen(true) }}
             className="[border:1.5px_solid_var(--gf-brown-300)] text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold bg-transparent cursor-pointer"
           >
-            + Add accessory
+            {t.add}
           </button>
         }
       />
@@ -134,8 +139,8 @@ export default function AccessoriesPage() {
         empty={
           <EmptyState
             icon={Package}
-            heading="No accessories yet"
-            sub="Add accessories so owners can specify what is included with their camera."
+            heading={t.empty}
+            sub={t.emptySub}
           />
         }
       />
@@ -143,18 +148,18 @@ export default function AccessoriesPage() {
       <FormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title={editTarget ? 'Edit Accessory' : 'Add Accessory'}
-        submitLabel={editTarget ? 'Save changes' : 'Add accessory'}
+        title={editTarget ? t.editTitle : t.addTitle}
+        submitLabel={editTarget ? masterText.saveChanges : t.addSubmit}
         onSubmit={form.handleSubmit(data => {
           saveMutation.mutate({ ...data, id: editTarget?.id })
           setFormOpen(false)
         })}
       >
         <form>
-          <Label>Accessory name</Label>
+          <Label>{t.name}</Label>
           <Input
             {...form.register('name')}
-            placeholder="e.g. Spare battery"
+            placeholder={t.placeholder}
             className="[margin-top:6px]"
           />
           {form.formState.errors.name && (
@@ -165,12 +170,10 @@ export default function AccessoriesPage() {
         </form>
       </FormDialog>
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={deleteTarget !== null}
         onOpenChange={open => { if (!open) setDeleteTarget(null) }}
-        title={`Delete "${deleteTarget?.name}"?`}
-        description="This accessory will be permanently removed. This cannot be undone."
-        destructive
+        pending={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
           setDeleteTarget(null)

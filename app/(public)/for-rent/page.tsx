@@ -5,6 +5,8 @@ import axios from 'axios';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import type { Product } from '@/types';
+import { getPageText } from '@/lib/menuI18n';
+import { useAppStore } from '@/store/appStore';
 
 async function fetchProducts(): Promise<Product[]> {
   const { data } = await axios.get('/api/products');
@@ -12,6 +14,7 @@ async function fetchProducts(): Promise<Product[]> {
 }
 
 export default function ForRentPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'catalog');
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
@@ -19,10 +22,10 @@ export default function ForRentPage() {
 
   return (
     <div className="animate-fade-up">
-      <Breadcrumb items={['ทั้งหมด']} />
+      <Breadcrumb items={[t.allProducts]} />
       {isLoading ? (
         <div className="text-gf-muted text-center [padding:60px]">
-          กำลังโหลด…
+          {t.loading}
         </div>
       ) : (
         <div className="grid [grid-template-columns:repeat(auto-fill,_minmax(230px,_1fr))] gap-[20px]">

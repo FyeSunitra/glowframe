@@ -11,17 +11,21 @@ export default function AboutPage() {
   return (
     <div className="animate-fade-up">
       <Breadcrumb items={['About GlowFrame']} />
-      <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] [padding:28px] grid [grid-template-columns:280px_1fr] gap-[34px] [align-items:start]">
-        <div className="flex justify-center">
+      <div className="grid grid-cols-1 items-start gap-6 rounded-[22px] bg-white p-5 [box-shadow:var(--gf-shadow)] sm:p-7 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8">
+        <div className="flex justify-center lg:sticky lg:top-6">
           <BrandLogo variant="about" />
         </div>
 
-        <div>
-          <h2 className="font-[var(--font-poppins)] [margin-top:0]">GlowFrame</h2>
+        <div className="min-w-0">
+          <h1 className="m-0 mb-4 font-[var(--font-poppins)] text-[24px] font-semibold text-gf-brown-900 sm:text-[28px]">
+            GlowFrame
+          </h1>
           {t.paragraphs.map((text) => (
-            <p key={text} className="text-gf-brown-700 [line-height:1.9] text-[14.5px]">{text}</p>
+            <p key={text} className="text-[14px] leading-7 text-gf-brown-700 sm:text-[14.5px] sm:leading-[1.9]">
+              {text}
+            </p>
           ))}
-          <p className="font-semibold text-gf-brown-900 [line-height:1.9] text-[14.5px]">
+          <p className="mb-0 text-[14px] font-semibold leading-7 text-gf-brown-900 sm:text-[14.5px] sm:leading-[1.9]">
             {t.closing}
           </p>
         </div>

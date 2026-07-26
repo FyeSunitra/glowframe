@@ -27,7 +27,14 @@ export function ok<T>(data: T): ApiResponse<T> {
 
 export function fail(error: unknown, fallback = 'Request failed'): ApiResponse<never> {
   if (error instanceof ApiError) {
-    return { success: false, error: error.message || fallback }
+    const code =
+      typeof error.payload === 'object' &&
+      error.payload &&
+      'code' in error.payload &&
+      typeof error.payload.code === 'string'
+        ? error.payload.code
+        : undefined
+    return { success: false, error: error.message || fallback, code }
   }
 
   if (error instanceof Error) {

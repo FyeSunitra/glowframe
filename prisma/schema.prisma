@@ -137,9 +137,8 @@ enum PolicyDocumentStatus {
 
 model User {
   id                   BigInt     @id @default(autoincrement())
+  authUserId           String?    @unique @map("auth_user_id") @db.Uuid
   email                String     @unique @db.VarChar(255)
-  passwordHash         String?    @map("password_hash") @db.VarChar(255)
-  googleSub            String?    @unique @map("google_sub") @db.VarChar(255)
   displayName          String     @map("display_name") @db.VarChar(120)
   fullName             String?    @map("full_name") @db.VarChar(160)
   phone                String?    @db.VarChar(40)
@@ -171,7 +170,7 @@ model User {
   policyAcceptances     UserPolicyAcceptance[]
 
   @@index([email])
-  @@index([googleSub])
+  @@index([authUserId])
   @@index([role])
   @@index([status])
   @@map("users")
@@ -531,11 +530,36 @@ model Bank {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  bankAccounts BankAccount[]
+  bankAccounts     BankAccount[]
+  platformSettings PlatformSetting[]
 
   @@index([name])
   @@index([isActive])
   @@map("banks")
+}
+
+model PlatformSetting {
+  id                      Int      @id @default(1)
+  platformFee             Decimal  @default(10) @map("platform_fee") @db.Decimal(5, 2)
+  minPayout               Decimal  @default(500) @map("min_payout") @db.Decimal(12, 2)
+  lateFeePerDay           Decimal  @default(300) @map("late_fee_per_day") @db.Decimal(12, 2)
+  minAdvanceDays          Int      @default(5) @map("min_advance_days")
+  paymentDeadlineHours    Int      @default(24) @map("payment_deadline_hours")
+  ownerPrepDays           Int      @default(2) @map("owner_prep_days")
+  cancellationWindowHours Int      @default(12) @map("cancellation_window_hours")
+  platformBankId          BigInt?  @map("platform_bank_id")
+  platformAccountName     String   @default("GlowFrame Co., Ltd.") @map("platform_account_name") @db.VarChar(160)
+  platformAccountNo       String   @default("123-4-56789-0") @map("platform_account_no") @db.VarChar(80)
+  paymentReviewHours      Int      @default(24) @map("payment_review_hours")
+  payoutReviewDays        Int      @default(3) @map("payout_review_days")
+  supportedBanks          String   @default("") @map("supported_banks")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  platformBank Bank? @relation(fields: [platformBankId], references: [id], onDelete: SetNull)
+
+  @@index([platformBankId])
+  @@map("platform_settings")
 }
 
 model Withdrawal {

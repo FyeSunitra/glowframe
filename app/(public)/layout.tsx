@@ -1,23 +1,51 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Topbar } from '@/components/layout/Topbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAppStore } from '@/store/appStore';
+import { authService } from '@/services/auth';
+import { getPageText } from '@/lib/menuI18n';
 
 /* App shell layout — wraps all authenticated pages */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const login = useAppStore((state) => state.login);
+  const logout = useAppStore((state) => state.logout);
+  const locale = useAppStore((state) => state.locale);
   const router = useRouter();
+  const loadingText = getPageText(locale, 'catalog').loading;
 
-  // Redirect to login if not authenticated
-  // (future: Supabase session check goes here)
   useEffect(() => {
-    if (!isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, router]);
+    let active = true;
 
-  if (!isAuthenticated) return null;
+    async function hydrateSession() {
+      const result = await authService.session();
+      if (!active) return;
+
+      if (result.success) {
+        login(result.data.user);
+      } else {
+        logout();
+        router.replace('/login');
+      }
+      setIsCheckingSession(false);
+    }
+
+    void hydrateSession();
+    return () => {
+      active = false;
+    };
+  }, [login, logout, router]);
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gf-cream text-sm text-gf-muted">
+        {loadingText}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gf-cream">

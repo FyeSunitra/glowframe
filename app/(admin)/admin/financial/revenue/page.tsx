@@ -10,6 +10,7 @@ import { StatCard } from '@/components/admin/shared/StatCard'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { money } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface RevenueRow { period: string; transactions: number; grossVolume: number; platformFees: number; refunds: number; netRevenue: number }
 interface RevenueStats { grossVolume: number; platformFees: number; refunds: number; netRevenue: number }
@@ -18,6 +19,7 @@ interface RevenueResponse { data: RevenueRow[]; stats: RevenueStats }
 const PERIOD_OPTIONS = [{ value: 'today', label: 'Today' }, { value: 'this-week', label: 'This week' }, { value: 'this-month', label: 'This month' }, { value: 'last-month', label: 'Last month' }]
 
 export default function RevenuePage() {
+  const { tr } = useMenuI18n()
   const [period, setPeriod] = useState('this-month')
 
   const { data: response, isLoading } = useQuery<RevenueResponse>({
@@ -50,7 +52,7 @@ export default function RevenuePage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Financial', 'Revenue']}
         title="Revenue & Reconciliation"
-        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">Export CSV</button>}
+        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('Export CSV')}</button>}
       />
       <FilterBar selects={[{ label: 'Period', value: period, onChange: setPeriod, options: PERIOD_OPTIONS }]} />
 

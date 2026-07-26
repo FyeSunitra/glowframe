@@ -5,6 +5,8 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
+import { translateText } from "@/lib/menuI18n"
+import { useAppStore } from "@/store/appStore"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -77,11 +79,13 @@ function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  children,
   ...props
 }: MenuPrimitive.Item.Props & {
   inset?: boolean
   variant?: "default" | "destructive"
 }) {
+  const locale = useAppStore((state) => state.locale)
   return (
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
@@ -92,7 +96,9 @@ function DropdownMenuItem({
         className
       )}
       {...props}
-    />
+    >
+      {typeof children === "string" ? translateText(locale, children) : children}
+    </MenuPrimitive.Item>
   )
 }
 

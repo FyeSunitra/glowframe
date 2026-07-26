@@ -64,8 +64,6 @@ const versionSchema = z.object({
 type VersionForm = z.infer<typeof versionSchema>
 
 const CARD_CLASS = 'rounded-[22px] bg-white p-[22px] shadow-[var(--gf-shadow)]'
-const SELECT_CLASS = 'h-[42px] w-full rounded-[14px] border-[1.5px] border-gf-brown-300 bg-white px-3.5'
-
 export default function TermsPage() {
   const locale = useAppStore((s) => s.locale)
   const t = getPageText(locale, 'adminLegalTerms')
@@ -222,7 +220,7 @@ export default function TermsPage() {
           <div className="grid [grid-template-columns:repeat(auto-fit,_minmax(220px,_1fr))] gap-[12px]">
             <Field label={t.documentType}>
               <Select value={selectedDocType} onValueChange={v => form.setValue('docType', (v ?? 'termsOfService') as PolicyType)}>
-                <SelectTrigger className={SELECT_CLASS}><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {POLICY_TYPES.map(type => <SelectItem key={type} value={type}>{t.typeLabels[type]}</SelectItem>)}
                 </SelectContent>

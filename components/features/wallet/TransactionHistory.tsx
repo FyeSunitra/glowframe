@@ -2,7 +2,7 @@
 
 import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { translateStatus } from '@/lib/menuI18n';
+import { getPageText, translateStatus } from '@/lib/menuI18n';
 import { useAppStore } from '@/store/appStore';
 import type { WalletTransaction } from '@/types';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ interface TransactionHistoryProps {
 export function TransactionHistory({ items, showChevron = false }: TransactionHistoryProps) {
   const router = useRouter();
   const locale = useAppStore((s) => s.locale);
+  const t = getPageText(locale, 'wallet');
 
   return (
     <div>
@@ -32,8 +33,12 @@ export function TransactionHistory({ items, showChevron = false }: TransactionHi
               <CheckCircle2 size={16} />
             </div>
             <div>
-              <div className="font-semibold text-[14px]">{h.name}</div>
-              <div className="text-[12px] text-gf-muted">{h.date} · {translateStatus(locale, h.status)}</div>
+              <div className="font-semibold text-[14px]">
+                {h.kind === 'payment' ? `${t.paymentFrom} ${h.name}` : h.name}
+              </div>
+              <div className="text-[12px] text-gf-muted">
+                {formatTransactionDate(h.date, locale)} · {translateStatus(locale, h.status)}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-[6px]">
@@ -44,4 +49,13 @@ export function TransactionHistory({ items, showChevron = false }: TransactionHi
       ))}
     </div>
   );
+}
+
+function formatTransactionDate(value: string, locale: 'th' | 'en') {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
 }

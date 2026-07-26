@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/useToast'
 import { cn } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface Ticket { id: number; ticketId: string; user: { displayName: string }; category: string; subject: string; priority: string; assignee: string | null; opened: string; lastReply: string; status: string }
 
@@ -35,6 +36,7 @@ const MOCK_THREAD = [
 ]
 
 export default function SupportPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Open')
@@ -53,9 +55,9 @@ export default function SupportPage() {
     queryFn: () => axios.get('/api/admin/comms/support', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'comms', 'support'] })
-  const assignMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'assign' }), onSuccess: () => { invalidate(); showToast('Assigned to you') } })
-  const resolveMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'resolve' }), onSuccess: () => { invalidate(); showToast('Ticket resolved') } })
-  const closeMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'close' }), onSuccess: () => { invalidate(); showToast('Ticket closed') } })
+  const assignMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'assign' }), onSuccess: () => { invalidate(); showToast(tr('Assigned to you')) } })
+  const resolveMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'resolve' }), onSuccess: () => { invalidate(); showToast(tr('Ticket resolved')) } })
+  const closeMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/support/${id}`, { action: 'close' }), onSuccess: () => { invalidate(); showToast(tr('Ticket closed')) } })
 
   const replyForm = useForm<ReplyForm>({ resolver: zodResolver(replySchema) })
 
@@ -65,7 +67,7 @@ export default function SupportPage() {
     { key: 'category', header: 'Category', render: (r: Ticket) => <span className="[text-transform:capitalize]">{r.category}</span> },
     { key: 'subject', header: 'Subject', render: (r: Ticket) => <span className="text-[13px]">{r.subject.slice(0, 60)}{r.subject.length > 60 ? '…' : ''}</span> },
     { key: 'priority', header: 'Priority', render: (r: Ticket) => <StatusBadge status={r.priority} /> },
-    { key: 'assignee', header: 'Assignee', render: (r: Ticket) => r.assignee ?? <span className="text-gf-muted text-[12.5px]">Unassigned</span> },
+    { key: 'assignee', header: 'Assignee', render: (r: Ticket) => r.assignee ?? <span className="text-gf-muted text-[12.5px]">{tr('Unassigned')}</span> },
     { key: 'opened', header: 'Opened', render: (r: Ticket) => <span className="text-[12.5px] text-gf-muted">{r.opened}</span> },
     { key: 'lastReply', header: 'Last reply', render: (r: Ticket) => <span className="text-[12.5px] text-gf-muted">{r.lastReply}</span> },
     { key: 'status', header: 'Status', render: (r: Ticket) => <StatusBadge status={r.status} /> },
@@ -73,10 +75,10 @@ export default function SupportPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View & Reply</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => assignMutation.mutate(r.id)}>Assign to me</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setResolveOpen(true) }}>Resolve</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setCloseOpen(true) }}>Close</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View & Reply')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => assignMutation.mutate(r.id)}>{tr('Assign to me')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setResolveOpen(true) }}>{tr('Resolve')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setCloseOpen(true) }}>{tr('Close')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -99,7 +101,7 @@ export default function SupportPage() {
         footer={
           <div className="flex gap-[10px]">
             <Textarea {...replyForm.register('message')} placeholder="Type your reply…" className="flex-1 h-[40px] [resize:none]" />
-            <button onClick={replyForm.handleSubmit(() => { showToast('Reply sent'); replyForm.reset() })} className="bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:0_20px] font-semibold cursor-pointer whitespace-nowrap">Send</button>
+            <button onClick={replyForm.handleSubmit(() => { showToast(tr('Reply sent')); replyForm.reset() })} className="bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:0_20px] font-semibold cursor-pointer whitespace-nowrap">{tr('Send')}</button>
           </div>
         }
       >

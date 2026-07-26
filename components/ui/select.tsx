@@ -5,8 +5,63 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import { translateText } from "@/lib/menuI18n"
+import { useAppStore } from "@/store/appStore"
 
-const Select = SelectPrimitive.Root
+function Select<Value, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const locale = useAppStore((state) => state.locale)
+  const inferredItems = React.useMemo(
+    () => items ?? collectSelectItems(children, locale),
+    [children, items, locale]
+  )
+
+  return (
+    <SelectPrimitive.Root<Value, Multiple>
+      items={inferredItems}
+      {...props}
+    >
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
+
+function collectSelectItems(
+  children: React.ReactNode,
+  locale: "th" | "en"
+): Array<{ label: React.ReactNode; value: unknown }> {
+  const items: Array<{ label: React.ReactNode; value: unknown }> = []
+
+  function visit(nodes: React.ReactNode) {
+    React.Children.forEach(nodes, (child) => {
+      if (!React.isValidElement<{
+        value?: unknown
+        children?: React.ReactNode
+      }>(child)) {
+        return
+      }
+
+      if (child.type === SelectItem && child.props.value !== undefined) {
+        items.push({
+          value: child.props.value,
+          label:
+            typeof child.props.children === "string"
+              ? translateText(locale, child.props.children)
+              : child.props.children,
+        })
+        return
+      }
+
+      visit(child.props.children)
+    })
+  }
+
+  visit(children)
+  return items
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -41,7 +96,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-[42px] w-full min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-[14px] border-[1.5px] border-[var(--gf-brown-300)] bg-white px-3.5 text-sm text-[var(--gf-brown-900)] whitespace-nowrap transition-colors outline-none select-none data-placeholder:text-[var(--gf-brown-400)] focus-visible:border-[var(--gf-pink-400)] focus-visible:ring-2 focus-visible:ring-[var(--gf-pink-100)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -60,10 +115,10 @@ function SelectContent({
   className,
   children,
   side = "bottom",
-  sideOffset = 4,
-  align = "center",
+  sideOffset = 6,
+  align = "start",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
@@ -113,6 +168,7 @@ function SelectItem({
   children,
   ...props
 }: SelectPrimitive.Item.Props) {
+  const locale = useAppStore((state) => state.locale)
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -123,7 +179,7 @@ function SelectItem({
       {...props}
     >
       <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
-        {children}
+        {typeof children === "string" ? translateText(locale, children) : children}
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator
         render={

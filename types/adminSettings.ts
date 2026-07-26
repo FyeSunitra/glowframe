@@ -24,8 +24,7 @@ export interface AdminAccount {
   id: number
   name: string
   email: string
-  role: string
-  lastLogin: string
+  role: 'admin'
 }
 
 export interface AdminSettings {
@@ -38,9 +37,7 @@ export interface AdminSettings {
 export type AdminSettingsSection = 'fees' | 'booking' | 'payment' | 'addAdmin' | 'removeAdmin'
 
 export interface AddAdminPayload {
-  name: string
   email: string
-  role: string
 }
 
 export interface AdminSettingsPatchPayload {

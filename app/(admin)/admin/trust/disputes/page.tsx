@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { money } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 import { useToast } from '@/hooks/useToast'
 
 interface Dispute { id: number; disputeId: string; bookingNo: string; openedBy: string; type: string; claimAmount: number; opened: string; status: string }
@@ -32,6 +33,7 @@ const rulingSchema = z.object({ notes: z.string().min(1), amount: z.number().min
 type RulingForm = z.infer<typeof rulingSchema>
 
 export default function DisputesPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Pending')
@@ -50,8 +52,8 @@ export default function DisputesPage() {
     queryFn: () => axios.get('/api/admin/trust/disputes', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'trust', 'disputes'] })
-  const assignMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'assign' }), onSuccess: () => { invalidate(); showToast('Assigned to you') } })
-  const closeMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'close' }), onSuccess: () => { invalidate(); showToast('Dispute closed') } })
+  const assignMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'assign' }), onSuccess: () => { invalidate(); showToast(tr('Assigned to you')) } })
+  const closeMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'close' }), onSuccess: () => { invalidate(); showToast(tr('Dispute closed')) } })
   const renterForm = useForm<RulingForm>({ resolver: zodResolver(rulingSchema), defaultValues: { amount: 0 } })
   const ownerForm = useForm<RulingForm>({ resolver: zodResolver(rulingSchema), defaultValues: { amount: 0 } })
 
@@ -69,11 +71,11 @@ export default function DisputesPage() {
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => assignMutation.mutate(r.id)}>Assign to me</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); renterForm.reset({ amount: 0 }); setRenterRulingOpen(true) }}>Rule for renter</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); ownerForm.reset({ amount: 0 }); setOwnerRulingOpen(true) }}>Rule for owner</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setCloseOpen(true) }}>Close without action</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => assignMutation.mutate(r.id)}>{tr('Assign to me')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); renterForm.reset({ amount: 0 }); setRenterRulingOpen(true) }}>{tr('Rule for renter')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); ownerForm.reset({ amount: 0 }); setOwnerRulingOpen(true) }}>{tr('Rule for owner')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setCloseOpen(true) }}>{tr('Close without action')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -106,7 +108,7 @@ export default function DisputesPage() {
               { label: 'Opened', value: selected.opened },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
+                <span className="text-gf-muted">{tr(r.label)}</span>
                 <span className="font-medium [text-transform:capitalize]">{r.value}</span>
               </div>
             ))}
@@ -114,13 +116,13 @@ export default function DisputesPage() {
         )}
       </DetailDrawer>
 
-      <FormDialog open={renterRulingOpen} onOpenChange={setRenterRulingOpen} title="Rule in favour of renter" submitLabel="Submit ruling" onSubmit={renterForm.handleSubmit(() => { showToast('Ruling submitted — renter favoured'); setRenterRulingOpen(false) })}>
+      <FormDialog open={renterRulingOpen} onOpenChange={setRenterRulingOpen} title="Rule in favour of renter" submitLabel="Submit ruling" onSubmit={renterForm.handleSubmit(() => { showToast(tr('Ruling submitted — renter favoured')); setRenterRulingOpen(false) })}>
         <form className="flex flex-col gap-[12px]">
           <div><Label>Ruling notes</Label><Textarea {...renterForm.register('notes')} className="[margin-top:6px]" /></div>
           <div><Label>Refund amount (THB)</Label><Input type="number" {...renterForm.register('amount', { valueAsNumber: true })} className="[margin-top:6px]" /></div>
         </form>
       </FormDialog>
-      <FormDialog open={ownerRulingOpen} onOpenChange={setOwnerRulingOpen} title="Rule in favour of owner" submitLabel="Submit ruling" onSubmit={ownerForm.handleSubmit(() => { showToast('Ruling submitted — owner favoured'); setOwnerRulingOpen(false) })}>
+      <FormDialog open={ownerRulingOpen} onOpenChange={setOwnerRulingOpen} title="Rule in favour of owner" submitLabel="Submit ruling" onSubmit={ownerForm.handleSubmit(() => { showToast(tr('Ruling submitted — owner favoured')); setOwnerRulingOpen(false) })}>
         <form className="flex flex-col gap-[12px]">
           <div><Label>Ruling notes</Label><Textarea {...ownerForm.register('notes')} className="[margin-top:6px]" /></div>
           <div><Label>Penalty amount (THB)</Label><Input type="number" {...ownerForm.register('amount', { valueAsNumber: true })} className="[margin-top:6px]" /></div>

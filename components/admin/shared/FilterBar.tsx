@@ -37,7 +37,7 @@ interface FilterBarProps {
   actions?: ReactNode;
 }
 
-const TRIGGER_CLASS = 'h-10 cursor-pointer rounded-full border-[1.5px] border-gf-line bg-white pl-3.5 text-sm';
+const TRIGGER_CLASS = 'h-[42px] w-full cursor-pointer rounded-[14px] border-[1.5px] border-gf-line bg-white pl-3.5 text-sm sm:min-w-[170px] sm:flex-1';
 
 function formatDate(d: Date | null, locale: 'th' | 'en'): string {
   if (!d) return translateText(locale, 'Pick date');
@@ -48,22 +48,22 @@ export function FilterBar({ search, selects, dateRange, actions }: FilterBarProp
   const locale = useAppStore((s) => s.locale);
 
   return (
-    <div className="flex items-center gap-[12px] flex-wrap [margin-bottom:20px]">
+    <div className="flex w-full min-w-0 flex-col items-stretch gap-3 [margin-bottom:20px] sm:flex-row sm:flex-wrap sm:items-center">
       {search && (
-        <div className="bg-gf-pink-100 rounded-full flex items-center gap-[10px] [padding:10px_18px] text-gf-muted text-[14px] min-w-[240px]">
-          <Search size={16} />
+        <div className="flex h-[42px] w-full items-center gap-2.5 rounded-[14px] border-[1.5px] border-gf-line bg-white px-[18px] text-[14px] text-gf-muted sm:min-w-[240px] sm:flex-[2]">
+          <Search className="shrink-0" size={16} />
           <input
             placeholder={translateText(locale, search.placeholder)}
             value={search.value}
             onChange={(e) => search.onChange(e.target.value)}
-            className="bg-transparent border-0 outline-none flex-1"
+            className="min-w-0 flex-1 border-0 bg-transparent outline-none"
           />
         </div>
       )}
 
       {selects?.map((sel) => (
         <Select key={sel.label} value={sel.value} onValueChange={(v) => sel.onChange(v ?? '')}>
-          <SelectTrigger className={TRIGGER_CLASS}>
+          <SelectTrigger className="w-full sm:min-w-[170px] sm:flex-1">
             <SelectValue placeholder={translateText(locale, sel.label)} />
           </SelectTrigger>
           <SelectContent>
@@ -106,7 +106,7 @@ export function FilterBar({ search, selects, dateRange, actions }: FilterBarProp
         </>
       )}
 
-      {actions && <div className="ml-auto">{actions}</div>}
+      {actions && <div className="w-full sm:ml-auto sm:w-auto">{actions}</div>}
     </div>
   );
 }

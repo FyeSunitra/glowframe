@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import { CameraGlyph } from '@/components/common/CameraGlyph'
 import { TransactionHistory } from '@/components/features/wallet/TransactionHistory'
 import {
@@ -26,6 +27,8 @@ import { Field } from '@/components/admin/shared/Field'
 import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
 import type { WalletTransaction } from '@/types'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface AdminProduct {
   id: number
@@ -41,20 +44,6 @@ interface AdminProduct {
   owner: { id: number; displayName: string; email: string }
 }
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'active', label: 'Active' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'archived', label: 'Archived' },
-]
-const PRICE_OPTIONS = [
-  { value: '', label: 'All prices' },
-  { value: 'under500', label: 'Under ฿500' },
-  { value: '500-1500', label: '฿500–1,500' },
-  { value: 'above1500', label: 'Above ฿1,500' },
-]
-
 const MOCK_PRODUCT_BOOKINGS: WalletTransaction[] = [
   { id: 1, name: 'Booking #123456-78', date: '12 Jul 2026', amt: 4500, status: 'paid' },
   { id: 2, name: 'Booking #112233-44', date: '28 Jun 2026', amt: 4500, status: 'paid' },
@@ -67,12 +56,12 @@ const listingSchema = z.object({
   price: z.number().min(1),
   deposit: z.number().min(0),
 })
-const rejectSchema = z.object({ reason: z.string().min(1, 'Reason is required') })
 type ListingForm = z.infer<typeof listingSchema>
-type RejectForm = z.infer<typeof rejectSchema>
+type RejectForm = { reason: string }
 
-function ProductRowActions({ row, onApprove, onReject, onEdit, onArchive, onDelete }: {
+function ProductRowActions({ row, labels, onApprove, onReject, onEdit, onArchive, onDelete }: {
   row: AdminProduct
+  labels: { approve: string; reject: string; edit: string; archive: string; delete: string }
   onApprove: (row: AdminProduct) => void
   onReject: (row: AdminProduct) => void
   onEdit: (row: AdminProduct) => void
@@ -88,18 +77,19 @@ function ProductRowActions({ row, onApprove, onReject, onEdit, onArchive, onDele
         <MoreHorizontal size={16} />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="end">
-        {row.status === 'pending' && <DropdownMenuItem onClick={() => onApprove(row)}>Approve</DropdownMenuItem>}
-        {row.status === 'pending' && <DropdownMenuItem onClick={() => onReject(row)}>Reject</DropdownMenuItem>}
-        <DropdownMenuItem onClick={() => onEdit(row)}>Edit</DropdownMenuItem>
+        {row.status === 'pending' && <DropdownMenuItem onClick={() => onApprove(row)}>{labels.approve}</DropdownMenuItem>}
+        {row.status === 'pending' && <DropdownMenuItem onClick={() => onReject(row)}>{labels.reject}</DropdownMenuItem>}
+        <DropdownMenuItem onClick={() => onEdit(row)}>{labels.edit}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onArchive(row)}>Archive</DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" onClick={() => onDelete(row)}>Delete</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onArchive(row)}>{labels.archive}</DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onClick={() => onDelete(row)}>{labels.delete}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
 export default function ProductsPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminProducts')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
@@ -113,6 +103,7 @@ export default function ProductsPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectTarget, setRejectTarget] = useState<AdminProduct | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null)
   const [confirmAction, setConfirmAction] = useState<{ label: string; destructive: boolean; onConfirm: () => void } | null>(null)
 
   const filters = { search, status: statusFilter, price: priceFilter }
@@ -126,31 +117,45 @@ export default function ProductsPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => axios.patch(`/api/admin/products/${id}`, { action: 'approve' }),
-    onSuccess: () => { invalidate(); showToast('Listing approved') },
+    onSuccess: () => { invalidate(); showToast(t.approvedToast) },
   })
   const archiveMutation = useMutation({
     mutationFn: (id: number) => axios.patch(`/api/admin/products/${id}`, { action: 'archive' }),
-    onSuccess: () => { invalidate(); showToast('Listing archived') },
+    onSuccess: () => { invalidate(); showToast(t.archivedToast) },
   })
   const deleteMutation = useMutation({
     mutationFn: (id: number) => axios.delete(`/api/admin/products/${id}`),
-    onSuccess: () => { invalidate(); showToast('Listing deleted') },
+    onSuccess: () => { invalidate(); showToast(t.deletedToast) },
   })
   const saveMutation = useMutation({
     mutationFn: (payload: Partial<ListingForm> & { id?: number }) => {
       const { id, ...body } = payload
       return id ? axios.patch(`/api/admin/products/${id}`, body) : axios.post('/api/admin/products', body)
     },
-    onSuccess: () => { invalidate(); showToast('Listing saved') },
+    onSuccess: () => { invalidate(); showToast(t.savedToast) },
   })
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) =>
       axios.patch(`/api/admin/products/${id}`, { action: 'reject', reason }),
-    onSuccess: () => { invalidate(); showToast('Listing rejected') },
+    onSuccess: () => { invalidate(); showToast(t.rejectedToast) },
   })
 
   const listingForm = useForm<ListingForm>({ resolver: zodResolver(listingSchema) })
+  const rejectSchema = z.object({ reason: z.string().trim().min(1, t.reasonRequired) })
   const rejectForm = useForm<RejectForm>({ resolver: zodResolver(rejectSchema) })
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    { value: 'pending', label: t.pending },
+    { value: 'active', label: t.active },
+    { value: 'rejected', label: t.rejected },
+    { value: 'archived', label: t.archived },
+  ]
+  const priceOptions = [
+    { value: '', label: t.allPrices },
+    { value: 'under500', label: t.under500 },
+    { value: '500-1500', label: t.betweenPrice },
+    { value: 'above1500', label: t.above1500 },
+  ]
 
   function openEdit(row: AdminProduct) {
     setEditTarget(row)
@@ -170,29 +175,30 @@ export default function ProductsPage() {
   }
 
   const COLUMNS = [
-    { key: 'camera', header: 'Camera', render: (row: AdminProduct) => (
+    { key: 'camera', header: t.camera, render: (row: AdminProduct) => (
       <span className="flex items-center gap-[10px] cursor-pointer" onClick={() => { setSelectedProduct(row); setDrawerOpen(true) }}>
         <CameraGlyph size={32} color={row.color} />
         <span className="font-semibold text-[13px]">{row.name}</span>
       </span>
     )},
-    { key: 'owner', header: 'Owner', render: (row: AdminProduct) => row.owner.displayName },
-    { key: 'price', header: 'Price/day', render: (row: AdminProduct) => `${money(row.price)} THB` },
-    { key: 'deposit', header: 'Deposit', render: (row: AdminProduct) => `${money(row.deposit)} THB` },
-    { key: 'rating', header: 'Rating', render: (row: AdminProduct) => (
+    { key: 'owner', header: t.owner, render: (row: AdminProduct) => row.owner.displayName },
+    { key: 'price', header: t.pricePerDay, render: (row: AdminProduct) => `${money(row.price)} THB` },
+    { key: 'deposit', header: t.deposit, render: (row: AdminProduct) => `${money(row.deposit)} THB` },
+    { key: 'rating', header: t.rating, render: (row: AdminProduct) => (
       <span className="text-gf-yellow text-[13px]">{'★'.repeat(row.rating)}</span>
     )},
-    { key: 'bookings', header: 'Bookings', render: (row: AdminProduct) => row.bookingCount },
-    { key: 'status', header: 'Status', render: (row: AdminProduct) => <StatusBadge status={row.status} /> },
-    { key: 'created', header: 'Created', render: (row: AdminProduct) => row.createdAt },
+    { key: 'bookings', header: t.bookings, render: (row: AdminProduct) => row.bookingCount },
+    { key: 'status', header: t.status, render: (row: AdminProduct) => <StatusBadge status={row.status} /> },
+    { key: 'created', header: t.created, render: (row: AdminProduct) => row.createdAt },
     { key: 'actions', header: '', render: (row: AdminProduct) => (
       <ProductRowActions
         row={row}
-        onApprove={(r) => openConfirm('Approve this listing?', false, () => { approveMutation.mutate(r.id); setConfirmOpen(false) })}
+        labels={t}
+        onApprove={(r) => openConfirm(t.approveTitle, false, () => { approveMutation.mutate(r.id); setConfirmOpen(false) })}
         onReject={openReject}
         onEdit={openEdit}
-        onArchive={(r) => openConfirm('Archive this listing?', false, () => { archiveMutation.mutate(r.id); setConfirmOpen(false) })}
-        onDelete={(r) => openConfirm('Permanently delete this listing?', true, () => { deleteMutation.mutate(r.id); setConfirmOpen(false) })}
+        onArchive={(r) => openConfirm(t.archiveTitle, false, () => { archiveMutation.mutate(r.id); setConfirmOpen(false) })}
+        onDelete={setDeleteTarget}
       />
     )},
   ]
@@ -200,23 +206,23 @@ export default function ProductsPage() {
   return (
     <div className="animate-fade-up">
       <AdminPageHeader
-        breadcrumb={['Admin', 'Camera Listings']}
-        title="Camera Listings"
+        breadcrumb={['Admin', t.title]}
+        title={t.title}
         action={
           <button
             onClick={() => { setEditTarget(null); listingForm.reset(); setFormOpen(true) }}
             className="[border:1.5px_solid_var(--gf-brown-300)] text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold bg-transparent cursor-pointer"
           >
-            + Add listing
+            {t.add}
           </button>
         }
       />
 
       <FilterBar
-        search={{ placeholder: 'Search by camera name or owner…', value: search, onChange: setSearch }}
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
         selects={[
-          { label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
-          { label: 'Price range', value: priceFilter, onChange: setPriceFilter, options: PRICE_OPTIONS },
+          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
+          { label: t.priceRange, value: priceFilter, onChange: setPriceFilter, options: priceOptions },
         ]}
       />
 
@@ -224,7 +230,7 @@ export default function ProductsPage() {
         columns={COLUMNS}
         data={products}
         loading={isLoading}
-        empty={<EmptyState icon={Camera} heading="No listings yet" sub="Listings appear here when owners add cameras." />}
+        empty={<EmptyState icon={Camera} heading={t.noListings} sub={t.noListingsSub} />}
       />
 
       <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selectedProduct?.name ?? ''} subtitle={selectedProduct?.owner.displayName}>
@@ -235,17 +241,17 @@ export default function ProductsPage() {
             </div>
             <p className="text-[13.5px] text-gf-brown-700 [margin-bottom:20px] [line-height:1.6]">{selectedProduct.desc}</p>
             {[
-              { label: 'Owner', value: selectedProduct.owner.displayName },
-              { label: 'Price / day', value: `${money(selectedProduct.price)} THB` },
-              { label: 'Deposit', value: `${money(selectedProduct.deposit)} THB` },
-              { label: 'Rating', value: '★'.repeat(selectedProduct.rating), yellow: true },
+              { label: t.owner, value: selectedProduct.owner.displayName },
+              { label: t.pricePerDay, value: `${money(selectedProduct.price)} THB` },
+              { label: t.deposit, value: `${money(selectedProduct.deposit)} THB` },
+              { label: t.rating, value: '★'.repeat(selectedProduct.rating), yellow: true },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:12px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
                 <span className={cn('font-semibold', r.yellow && 'text-gf-yellow')}>{r.value}</span>
               </div>
             ))}
-            <div className="[margin-top:24px] text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">Recent Bookings</div>
+            <div className="[margin-top:24px] text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">{t.recentBookings}</div>
             <TransactionHistory items={MOCK_PRODUCT_BOOKINGS} />
           </div>
         )}
@@ -254,20 +260,20 @@ export default function ProductsPage() {
       <FormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title={editTarget ? 'Edit Listing' : 'Add Listing'}
-        submitLabel={editTarget ? 'Save changes' : 'Add listing'}
+        title={editTarget ? t.editTitle : t.addTitle}
+        submitLabel={editTarget ? t.saveChanges : t.addSubmit}
         onSubmit={listingForm.handleSubmit((data) => {
           saveMutation.mutate({ ...data, id: editTarget?.id })
           setFormOpen(false)
         })}
       >
         <form className="flex flex-col gap-[14px]">
-          <Field label="Name"><Input {...listingForm.register('name')} /></Field>
-          <Field label="Description"><Textarea {...listingForm.register('desc')} /></Field>
-          <Field label="Extra info"><Textarea {...listingForm.register('extra')} /></Field>
+          <Field label={t.name}><Input {...listingForm.register('name')} /></Field>
+          <Field label={t.description}><Textarea {...listingForm.register('desc')} /></Field>
+          <Field label={t.extraInfo}><Textarea {...listingForm.register('extra')} /></Field>
           <div className="grid [grid-template-columns:1fr_1fr] gap-[12px]">
-            <Field label="Price / day (THB)"><Input type="number" {...listingForm.register('price', { valueAsNumber: true })} /></Field>
-            <Field label="Deposit (THB)"><Input type="number" {...listingForm.register('deposit', { valueAsNumber: true })} /></Field>
+            <Field label={t.priceThb}><Input type="number" {...listingForm.register('price', { valueAsNumber: true })} /></Field>
+            <Field label={t.depositThb}><Input type="number" {...listingForm.register('deposit', { valueAsNumber: true })} /></Field>
           </div>
         </form>
       </FormDialog>
@@ -275,16 +281,16 @@ export default function ProductsPage() {
       <FormDialog
         open={rejectOpen}
         onOpenChange={setRejectOpen}
-        title="Reject Listing"
-        submitLabel="Reject"
+        title={t.rejectTitle}
+        submitLabel={t.reject}
         onSubmit={rejectForm.handleSubmit((data) => {
           if (rejectTarget) rejectMutation.mutate({ id: rejectTarget.id, reason: data.reason })
           setRejectOpen(false)
         })}
       >
         <form>
-          <Field label="Reason for rejection">
-            <Textarea {...rejectForm.register('reason')} placeholder="Explain why this listing is being rejected…" />
+          <Field label={t.reason}>
+            <Textarea {...rejectForm.register('reason')} placeholder={t.reasonPlaceholder} />
           </Field>
           {rejectForm.formState.errors.reason && (
             <span className="text-[12px] text-gf-red [margin-top:4px] block">
@@ -298,9 +304,18 @@ export default function ProductsPage() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={confirmAction?.label ?? ''}
-        description="This action cannot be undone."
+        description={t.cannotUndo}
         destructive={confirmAction?.destructive}
         onConfirm={() => { confirmAction?.onConfirm(); setConfirmOpen(false) }}
+      />
+      <ConfirmDeleteDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        pending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+          setDeleteTarget(null)
+        }}
       />
     </div>
   )

@@ -14,6 +14,7 @@ import { StatusBadge } from '@/components/admin/shared/StatusBadge'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import { PillTabs } from '@/components/admin/shared/PillTabs'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { useToast } from '@/hooks/useToast'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface Announcement { id: number; title: string; segment: string; sendTime: string | null; recipients: number; readRate: number; status: string }
 
@@ -31,6 +33,7 @@ const annSchema = z.object({ title: z.string().min(1), body: z.string().min(1), 
 type AnnForm = z.infer<typeof annSchema>
 
 export default function AnnouncementsPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('All')
@@ -47,10 +50,10 @@ export default function AnnouncementsPage() {
     queryFn: () => axios.get('/api/admin/comms/announcements', { params: { tab, search, segment: segmentFilter } }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'comms', 'announcements'] })
-  const saveMutation = useMutation({ mutationFn: (body: Partial<AnnForm> & { id?: number }) => { const { id, ...rest } = body; return id ? axios.patch(`/api/admin/comms/announcements/${id}`, rest) : axios.post('/api/admin/comms/announcements', rest) }, onSuccess: () => { invalidate(); showToast('Announcement saved') } })
-  const sendMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/announcements/${id}`, { action: 'send' }), onSuccess: () => { invalidate(); showToast('Announcement sent') } })
-  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/comms/announcements/${id}`), onSuccess: () => { invalidate(); showToast('Deleted') } })
-  const dupMutation = useMutation({ mutationFn: (id: number) => axios.post(`/api/admin/comms/announcements/${id}/duplicate`), onSuccess: () => { invalidate(); showToast('Duplicated') } })
+  const saveMutation = useMutation({ mutationFn: (body: Partial<AnnForm> & { id?: number }) => { const { id, ...rest } = body; return id ? axios.patch(`/api/admin/comms/announcements/${id}`, rest) : axios.post('/api/admin/comms/announcements', rest) }, onSuccess: () => { invalidate(); showToast(tr('Announcement saved')) } })
+  const sendMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/comms/announcements/${id}`, { action: 'send' }), onSuccess: () => { invalidate(); showToast(tr('Announcement sent')) } })
+  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/comms/announcements/${id}`), onSuccess: () => { invalidate(); showToast(tr('Deleted')) } })
+  const dupMutation = useMutation({ mutationFn: (id: number) => axios.post(`/api/admin/comms/announcements/${id}/duplicate`), onSuccess: () => { invalidate(); showToast(tr('Duplicated')) } })
 
   const form = useForm<AnnForm>({ resolver: zodResolver(annSchema), defaultValues: { segment: 'all', sendMode: 'immediate', channel: 'in-app' } })
 
@@ -65,10 +68,10 @@ export default function AnnouncementsPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          {r.status === 'draft' && <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ title: r.title, segment: r.segment, sendMode: 'immediate', channel: 'in-app', body: '' }); setFormOpen(true) }}>Edit</DropdownMenuItem>}
-          {r.status !== 'sent' && <DropdownMenuItem onClick={() => setSendNowId(r.id)}>Send now</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => dupMutation.mutate(r.id)}>Duplicate</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>Delete</DropdownMenuItem>
+          {r.status === 'draft' && <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ title: r.title, segment: r.segment, sendMode: 'immediate', channel: 'in-app', body: '' }); setFormOpen(true) }}>{tr('Edit')}</DropdownMenuItem>}
+          {r.status !== 'sent' && <DropdownMenuItem onClick={() => setSendNowId(r.id)}>{tr('Send now')}</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => dupMutation.mutate(r.id)}>{tr('Duplicate')}</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>{tr('Delete')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -79,7 +82,7 @@ export default function AnnouncementsPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Communications', 'Announcements']}
         title="Announcements"
-        action={<button onClick={() => { setEditTarget(null); form.reset({ segment: 'all', sendMode: 'immediate', channel: 'in-app' }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">+ New announcement</button>}
+        action={<button onClick={() => { setEditTarget(null); form.reset({ segment: 'all', sendMode: 'immediate', channel: 'in-app' }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('+ New announcement')}</button>}
       />
       <PillTabs items={TABS} value={activeTab} onChange={setActiveTab} />
       <FilterBar
@@ -95,7 +98,7 @@ export default function AnnouncementsPage() {
           <div>
             <Label>Target segment</Label>
             <Select value={form.watch('segment')} onValueChange={v => form.setValue('segment', v ?? 'all')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All users</SelectItem>
                 <SelectItem value="owners">Owners only</SelectItem>
@@ -107,7 +110,7 @@ export default function AnnouncementsPage() {
       </FormDialog>
 
       <ConfirmDialog open={sendNowId !== null} onOpenChange={open => { if (!open) setSendNowId(null) }} title="Send this announcement now?" description="It will be delivered to all targeted users immediately." onConfirm={() => { if (sendNowId !== null) sendMutation.mutate(sendNowId); setSendNowId(null) }} />
-      <ConfirmDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} title="Delete this announcement?" description="This cannot be undone." destructive onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
+      <ConfirmDeleteDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} pending={deleteMutation.isPending} onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
     </div>
   )
 }

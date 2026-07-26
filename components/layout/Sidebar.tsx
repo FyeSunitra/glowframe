@@ -9,6 +9,7 @@ import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
 import { getMenuText } from '@/lib/menuI18n';
 import { cn } from '@/lib/utils';
+import { authService } from '@/services/auth';
 
 const NAV_ITEMS = [
   { href: '/about',       labelKey: 'about',     icon: Info },
@@ -37,9 +38,11 @@ export function Sidebar() {
   const router = useRouter();
   const active = activeKey(pathname);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await authService.logout();
     logout();
-    router.push('/login');
+    router.replace('/login');
+    router.refresh();
   }
 
   return (
@@ -66,7 +69,7 @@ export function Sidebar() {
       <div className="h-[1px] bg-gf-line [margin:10px_6px]" />
 
       <button
-        onClick={handleLogout}
+        onClick={() => void handleLogout()}
         className="flex items-center gap-[13px] [padding:13px_16px] rounded-[16px] text-gf-brown-700 font-medium text-[15px] bg-transparent border-0 cursor-pointer text-left"
       >
         <LogOut size={20} className="shrink-0" />

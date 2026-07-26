@@ -13,6 +13,7 @@ import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
+import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { useToast } from '@/hooks/useToast'
 import { cn } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface FeatureFlag { id: number; key: string; description: string; target: string; enabled: boolean; lastChanged: string; lastChangedBy: string }
 
@@ -30,6 +32,7 @@ const flagSchema = z.object({ key: z.string().min(1).regex(/^[a-z_]+$/), descrip
 type FlagForm = z.infer<typeof flagSchema>
 
 export default function FeatureFlagsPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -52,13 +55,13 @@ export default function FeatureFlagsPage() {
       const { id, ...body } = data
       return id ? axios.patch(`/api/admin/config/feature-flags/${id}`, body) : axios.post('/api/admin/config/feature-flags', body)
     },
-    onSuccess: () => { invalidate(); showToast('Feature flag saved') },
+    onSuccess: () => { invalidate(); showToast(tr('Feature flag saved')) },
   })
   const toggleMutation = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => axios.patch(`/api/admin/config/feature-flags/${id}`, { enabled }),
-    onSuccess: () => { invalidate(); showToast('Flag updated') },
+    onSuccess: () => { invalidate(); showToast(tr('Flag updated')) },
   })
-  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/config/feature-flags/${id}`), onSuccess: () => { invalidate(); showToast('Flag deleted') } })
+  const deleteMutation = useMutation({ mutationFn: (id: number) => axios.delete(`/api/admin/config/feature-flags/${id}`), onSuccess: () => { invalidate(); showToast(tr('Flag deleted')) } })
 
   const form = useForm<FlagForm>({ resolver: zodResolver(flagSchema), defaultValues: { target: 'all', enabled: false } })
 
@@ -88,8 +91,8 @@ export default function FeatureFlagsPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ key: r.key, description: r.description, target: r.target, enabled: r.enabled }); setFormOpen(true) }}>Edit</DropdownMenuItem>
-          {!r.enabled && <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>Delete</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => { setEditTarget(r); form.reset({ key: r.key, description: r.description, target: r.target, enabled: r.enabled }); setFormOpen(true) }}>{tr('Edit')}</DropdownMenuItem>
+          {!r.enabled && <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(r.id)}>{tr('Delete')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -100,7 +103,7 @@ export default function FeatureFlagsPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Platform Config', 'Feature Flags']}
         title="Feature Flags"
-        action={<button onClick={() => { setEditTarget(null); form.reset({ target: 'all', enabled: false }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">+ New flag</button>}
+        action={<button onClick={() => { setEditTarget(null); form.reset({ target: 'all', enabled: false }); setFormOpen(true) }} className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('+ New flag')}</button>}
       />
       <FilterBar
         search={{ placeholder: 'Search flag key or description…', value: search, onChange: setSearch }}
@@ -118,7 +121,7 @@ export default function FeatureFlagsPage() {
           <div>
             <Label>Target segment</Label>
             <Select value={form.watch('target')} onValueChange={v => form.setValue('target', v ?? 'all')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All users</SelectItem>
                 <SelectItem value="owners">Owners only</SelectItem>
@@ -140,7 +143,7 @@ export default function FeatureFlagsPage() {
         description={toggleEnabled ? 'This flag will affect all targeted users immediately.' : 'This flag will be disabled immediately.'}
         onConfirm={() => { if (toggleId !== null) toggleMutation.mutate({ id: toggleId, enabled: toggleEnabled }); setToggleId(null) }}
       />
-      <ConfirmDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} title="Delete this flag?" description="The flag will be permanently removed." destructive onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
+      <ConfirmDeleteDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null) }} pending={deleteMutation.isPending} onConfirm={() => { if (deleteId !== null) deleteMutation.mutate(deleteId); setDeleteId(null) }} />
     </div>
   )
 }

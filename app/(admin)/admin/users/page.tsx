@@ -18,6 +18,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
 import type { WalletTransaction } from '@/types'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface AdminUser {
   id: number
@@ -46,21 +48,10 @@ const MOCK_USER_BOOKINGS: WalletTransaction[] = [
   { id: 3, name: 'Booking #345678-90', date: '8 Jul 2026', amt: 1800, status: 'pending' },
 ]
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'active', label: 'Active' },
-  { value: 'suspended', label: 'Suspended' },
-]
-const VERIFICATION_OPTIONS = [
-  { value: '', label: 'All verification' },
-  { value: 'verified', label: 'Fully verified' },
-  { value: 'unverified', label: 'Not fully verified' },
-]
-
-function VerifiedChips({ user }: { user: AdminUser }) {
+function VerifiedChips({ user, labels }: { user: AdminUser; labels: readonly [string, string, string] }) {
   return (
     <span>
-      {[{ label: 'Phone', verified: user.phoneVerified }, { label: 'Email', verified: user.emailVerified }, { label: 'ID', verified: user.idVerified }].map(c => (
+      {[{ label: labels[0], verified: user.phoneVerified }, { label: labels[1], verified: user.emailVerified }, { label: labels[2], verified: user.idVerified }].map(c => (
         <span key={c.label} className={cn(
           'mr-1 rounded-full px-[7px] py-0.5 text-[11px] font-semibold',
           c.verified ? 'bg-[#DFF2E0] text-gf-green' : 'bg-gf-pink-100 text-gf-muted',
@@ -88,6 +79,7 @@ function UserAvatar({ name, size = 36 }: { name: string; size?: number }) {
 }
 
 export default function UsersPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminUsers')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
@@ -109,15 +101,26 @@ export default function UsersPage() {
 
   const suspendMutation = useMutation({
     mutationFn: (id: number) => axios.patch(`/api/admin/users/${id}`, { action: 'suspend' }),
-    onSuccess: () => { invalidate(); showToast('Account suspended') },
+    onSuccess: () => { invalidate(); showToast(t.suspendedToast) },
   })
   const unsuspendMutation = useMutation({
     mutationFn: (id: number) => axios.patch(`/api/admin/users/${id}`, { action: 'unsuspend' }),
-    onSuccess: () => { invalidate(); showToast('Account unsuspended') },
+    onSuccess: () => { invalidate(); showToast(t.unsuspendedToast) },
   })
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    { value: 'active', label: t.active },
+    { value: 'suspended', label: t.suspended },
+  ]
+  const verificationOptions = [
+    { value: '', label: t.allVerification },
+    { value: 'verified', label: t.fullyVerified },
+    { value: 'unverified', label: t.notFullyVerified },
+  ]
+  const verificationLabels = [t.phoneChip, t.emailChip, t.idChip] as const
 
   const COLUMNS = [
-    { key: 'user', header: 'User', render: (row: AdminUser) => (
+    { key: 'user', header: t.user, render: (row: AdminUser) => (
       <span className="flex items-center gap-[10px] cursor-pointer" onClick={() => { setSelected(row); setDrawerOpen(true) }}>
         <UserAvatar name={row.displayName} />
         <span>
@@ -126,21 +129,21 @@ export default function UsersPage() {
         </span>
       </span>
     )},
-    { key: 'verified', header: 'Verified', render: (row: AdminUser) => <VerifiedChips user={row} /> },
-    { key: 'listings', header: 'Listings', render: (row: AdminUser) => row.listings },
-    { key: 'bookings', header: 'Bookings', render: (row: AdminUser) => row.bookings },
-    { key: 'joined', header: 'Joined', render: (row: AdminUser) => <span className="text-[12.5px] text-gf-muted">{row.joinedAt}</span> },
-    { key: 'status', header: 'Status', render: (row: AdminUser) => <StatusBadge status={row.status} /> },
+    { key: 'verified', header: t.verified, render: (row: AdminUser) => <VerifiedChips user={row} labels={verificationLabels} /> },
+    { key: 'listings', header: t.listings, render: (row: AdminUser) => row.listings },
+    { key: 'bookings', header: t.bookings, render: (row: AdminUser) => row.bookings },
+    { key: 'joined', header: t.joined, render: (row: AdminUser) => <span className="text-[12.5px] text-gf-muted">{row.joinedAt}</span> },
+    { key: 'status', header: t.status, render: (row: AdminUser) => <StatusBadge status={row.status} /> },
     { key: 'actions', header: '', render: (row: AdminUser) => (
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={(e) => e.stopPropagation()}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>View</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>{t.view}</DropdownMenuItem>
           {row.status === 'active'
-            ? <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); setSuspendOpen(true) }}>Suspend</DropdownMenuItem>
-            : <DropdownMenuItem onClick={() => unsuspendMutation.mutate(row.id)}>Unsuspend</DropdownMenuItem>
+            ? <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); setSuspendOpen(true) }}>{t.suspend}</DropdownMenuItem>
+            : <DropdownMenuItem onClick={() => unsuspendMutation.mutate(row.id)}>{t.unsuspend}</DropdownMenuItem>
           }
         </DropdownMenuContent>
       </DropdownMenu>
@@ -149,19 +152,19 @@ export default function UsersPage() {
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Users']} title="Users" />
+      <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
       <FilterBar
-        search={{ placeholder: 'Search by name or email…', value: search, onChange: setSearch }}
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
         selects={[
-          { label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
-          { label: 'Verification', value: verificationFilter, onChange: setVerificationFilter, options: VERIFICATION_OPTIONS },
+          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
+          { label: t.verification, value: verificationFilter, onChange: setVerificationFilter, options: verificationOptions },
         ]}
       />
       <DataTable
         columns={COLUMNS}
         data={users}
         loading={isLoading}
-        empty={<EmptyState icon={Users} heading="No users yet" sub="Users appear here once they register." />}
+        empty={<EmptyState icon={Users} heading={t.noUsers} sub={t.noUsersSub} />}
       />
 
       <DetailDrawer
@@ -172,7 +175,7 @@ export default function UsersPage() {
         footer={selected?.status === 'active' ? (
           <button className="bg-gf-red text-white border-0 rounded-full [padding:11px_22px] font-semibold cursor-pointer w-full"
             onClick={() => { setDrawerOpen(false); setSuspendOpen(true) }}>
-            Suspend Account
+            {t.suspendAccount}
           </button>
         ) : undefined}
       >
@@ -182,13 +185,13 @@ export default function UsersPage() {
               <UserAvatar name={selected.displayName} size={60} />
             </div>
             <div className="flex justify-center [margin-bottom:20px] flex-wrap gap-[4px]">
-              <VerifiedChips user={selected} />
+              <VerifiedChips user={selected} labels={verificationLabels} />
             </div>
             {[
-              { label: 'Full name', value: selected.fullName },
-              { label: 'Email', value: selected.email },
-              { label: 'Phone', value: selected.phone },
-              { label: 'Joined', value: selected.joinedAt },
+              { label: t.fullName, value: selected.fullName },
+              { label: t.email, value: selected.email },
+              { label: t.phone, value: selected.phone },
+              { label: t.joined, value: selected.joinedAt },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
@@ -196,15 +199,15 @@ export default function UsersPage() {
               </div>
             ))}
             <Separator className="[margin:20px_0_16px]" />
-            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">Active Listings</div>
+            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">{t.activeListings}</div>
             {MOCK_USER_LISTINGS.map(l => (
               <div key={l.id} className="flex items-center gap-[10px] [padding:8px_0] [border-bottom:1px_solid_var(--gf-line)]">
                 <CameraGlyph size={28} color={l.color} />
                 <span className="text-[13px] font-medium flex-1">{l.name}</span>
-                <span className="text-[12.5px] text-gf-muted">{money(l.price)} THB/day</span>
+                <span className="text-[12.5px] text-gf-muted">{money(l.price)} THB/{t.perDay}</span>
               </div>
             ))}
-            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-top:20px] [margin-bottom:12px]">Recent Bookings</div>
+            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-top:20px] [margin-bottom:12px]">{t.recentBookings}</div>
             <TransactionHistory items={MOCK_USER_BOOKINGS} />
           </div>
         )}
@@ -213,8 +216,8 @@ export default function UsersPage() {
       <ConfirmDialog
         open={suspendOpen}
         onOpenChange={setSuspendOpen}
-        title="Suspend this account?"
-        description="The user will be unable to log in or make bookings."
+        title={t.suspendTitle}
+        description={t.suspendDescription}
         destructive
         onConfirm={() => { if (selected) suspendMutation.mutate(selected.id); setSuspendOpen(false) }}
       />

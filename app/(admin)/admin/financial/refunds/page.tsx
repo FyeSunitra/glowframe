@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { money } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 import { useToast } from '@/hooks/useToast'
 
 interface Refund { id: number; refundId: string; txnId: string; user: string; bookingNo: string; requested: number; approved: number | null; reason: string; requestedDate: string; status: string }
@@ -34,6 +35,7 @@ type PartialForm = z.infer<typeof partialSchema>
 type RejectForm = z.infer<typeof rejectSchema>
 
 export default function RefundsPage() {
+  const { tr } = useMenuI18n()
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Pending')
@@ -52,8 +54,8 @@ export default function RefundsPage() {
     queryFn: () => axios.get('/api/admin/financial/refunds', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'financial', 'refunds'] })
-  const approveMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/financial/refunds/${id}`, { action: 'approve-full' }), onSuccess: () => { invalidate(); showToast('Full refund approved') } })
-  const rejectMutation = useMutation({ mutationFn: ({ id, reason }: { id: number; reason: string }) => axios.patch(`/api/admin/financial/refunds/${id}`, { action: 'reject', reason }), onSuccess: () => { invalidate(); showToast('Refund rejected') } })
+  const approveMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/financial/refunds/${id}`, { action: 'approve-full' }), onSuccess: () => { invalidate(); showToast(tr('Full refund approved')) } })
+  const rejectMutation = useMutation({ mutationFn: ({ id, reason }: { id: number; reason: string }) => axios.patch(`/api/admin/financial/refunds/${id}`, { action: 'reject', reason }), onSuccess: () => { invalidate(); showToast(tr('Refund rejected')) } })
 
   const partialForm = useForm<PartialForm>({ resolver: zodResolver(partialSchema), defaultValues: { amount: 0 } })
   const rejectForm = useForm<RejectForm>({ resolver: zodResolver(rejectSchema) })
@@ -72,13 +74,13 @@ export default function RefundsPage() {
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
           {r.status === 'pending' && <>
-            <DropdownMenuItem onClick={() => { setSelected(r); setApproveOpen(true) }}>Approve full refund</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setSelected(r); partialForm.reset({ amount: 0 }); setPartialOpen(true) }}>Approve partial refund</DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); rejectForm.reset(); setRejectOpen(true) }}>Reject</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSelected(r); setApproveOpen(true) }}>{tr('Approve full refund')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSelected(r); partialForm.reset({ amount: 0 }); setPartialOpen(true) }}>{tr('Approve partial refund')}</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); rejectForm.reset(); setRejectOpen(true) }}>{tr('Reject')}</DropdownMenuItem>
           </>}
-          {r.status === 'approved' && <DropdownMenuItem onClick={() => showToast('Marked as gateway confirmed')}>Mark gateway confirmed</DropdownMenuItem>}
+          {r.status === 'approved' && <DropdownMenuItem onClick={() => showToast(tr('Marked as gateway confirmed'))}>{tr('Mark gateway confirmed')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -106,7 +108,7 @@ export default function RefundsPage() {
               { label: 'Requested date', value: selected.requestedDate },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
+                <span className="text-gf-muted">{tr(r.label)}</span>
                 <span className="font-medium">{r.value}</span>
               </div>
             ))}
@@ -116,7 +118,7 @@ export default function RefundsPage() {
       </DetailDrawer>
 
       <ConfirmDialog open={approveOpen} onOpenChange={setApproveOpen} title="Approve full refund?" description={`${money(selected?.requested ?? 0)} THB will be refunded to the customer.`} onConfirm={() => { if (selected) approveMutation.mutate(selected.id); setApproveOpen(false) }} />
-      <FormDialog open={partialOpen} onOpenChange={setPartialOpen} title="Approve Partial Refund" submitLabel="Approve" onSubmit={partialForm.handleSubmit(() => { showToast('Partial refund approved'); setPartialOpen(false) })}>
+      <FormDialog open={partialOpen} onOpenChange={setPartialOpen} title="Approve Partial Refund" submitLabel="Approve" onSubmit={partialForm.handleSubmit(() => { showToast(tr('Partial refund approved')); setPartialOpen(false) })}>
         <form className="flex flex-col gap-[12px]">
           <div><Label>Approved amount (THB)</Label><Input type="number" {...partialForm.register('amount', { valueAsNumber: true })} className="[margin-top:6px]" /></div>
           <div><Label>Reason</Label><Textarea {...partialForm.register('reason')} className="[margin-top:6px]" /></div>

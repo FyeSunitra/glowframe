@@ -25,6 +25,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
 import type { WalletTransaction } from '@/types'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface AdminBooking {
   id: number
@@ -45,20 +47,6 @@ interface AdminBooking {
   createdAt: string
 }
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'active', label: 'Active' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'completed', label: 'Completed' },
-]
-const DELIVERY_OPTIONS = [
-  { value: '', label: 'All delivery' },
-  { value: 'pickup', label: 'Pickup' },
-  { value: 'grab', label: 'Grab' },
-  { value: 'post', label: 'Post' },
-]
-
 const changeStatusSchema = z.object({
   status: z.string().min(1),
   note: z.string().optional(),
@@ -66,6 +54,7 @@ const changeStatusSchema = z.object({
 type ChangeStatusForm = z.infer<typeof changeStatusSchema>
 
 export default function BookingsPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminBookings')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
@@ -89,48 +78,61 @@ export default function BookingsPage() {
   const changeStatusMutation = useMutation({
     mutationFn: ({ id, status, note }: { id: number; status: string; note?: string }) =>
       axios.patch(`/api/admin/bookings/${id}`, { status, note }),
-    onSuccess: () => { invalidate(); showToast('Status updated') },
+    onSuccess: () => { invalidate(); showToast(t.statusUpdated) },
   })
   const cancelMutation = useMutation({
     mutationFn: (id: number) => axios.patch(`/api/admin/bookings/${id}`, { action: 'cancel' }),
-    onSuccess: () => { invalidate(); showToast('Booking cancelled') },
+    onSuccess: () => { invalidate(); showToast(t.bookingCancelled) },
   })
 
   const changeForm = useForm<ChangeStatusForm>({ resolver: zodResolver(changeStatusSchema) })
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    { value: 'pending', label: t.pending },
+    { value: 'active', label: t.active },
+    { value: 'cancelled', label: t.cancelled },
+    { value: 'completed', label: t.completed },
+  ]
+  const deliveryOptions = [
+    { value: '', label: t.allDelivery },
+    { value: 'pickup', label: t.pickup },
+    { value: 'grab', label: t.grab },
+    { value: 'post', label: t.post },
+  ]
 
   const bookingTxn: WalletTransaction[] = selected ? [
     { id: 1, name: `Booking #${selected.bookingNo}`, date: selected.createdAt, amt: selected.total, status: selected.status },
   ] : []
 
   const COLUMNS = [
-    { key: 'bookingNo', header: 'Booking #', render: (row: AdminBooking) => (
+    { key: 'bookingNo', header: t.bookingNo, render: (row: AdminBooking) => (
       <span className="font-[var(--font-poppins)] font-semibold text-[13px]">{row.bookingNo}</span>
     )},
-    { key: 'camera', header: 'Camera', render: (row: AdminBooking) => (
+    { key: 'camera', header: t.camera, render: (row: AdminBooking) => (
       <span className="flex items-center gap-[8px]">
         <CameraGlyph size={28} color={row.camera.color} />
         <span className="text-[13px]">{row.camera.name}</span>
       </span>
     )},
-    { key: 'renter', header: 'Renter', render: (row: AdminBooking) => row.renter.displayName },
-    { key: 'owner', header: 'Owner', render: (row: AdminBooking) => row.owner.displayName },
-    { key: 'days', header: 'Days', render: (row: AdminBooking) => row.days },
-    { key: 'delivery', header: 'Delivery', render: (row: AdminBooking) => <span className="[text-transform:capitalize]">{row.delivery}</span> },
-    { key: 'total', header: 'Total', render: (row: AdminBooking) => `${money(row.total)} THB` },
-    { key: 'rentalDate', header: 'Rental date', render: (row: AdminBooking) => (
+    { key: 'renter', header: t.renter, render: (row: AdminBooking) => row.renter.displayName },
+    { key: 'owner', header: t.owner, render: (row: AdminBooking) => row.owner.displayName },
+    { key: 'days', header: t.days, render: (row: AdminBooking) => row.days },
+    { key: 'delivery', header: t.delivery, render: (row: AdminBooking) => <span className="[text-transform:capitalize]">{row.delivery}</span> },
+    { key: 'total', header: t.total, render: (row: AdminBooking) => `${money(row.total)} THB` },
+    { key: 'rentalDate', header: t.rentalDate, render: (row: AdminBooking) => (
       <span className="text-[12.5px] text-gf-muted">{row.startDate} – {row.endDate}</span>
     )},
-    { key: 'status', header: 'Status', render: (row: AdminBooking) => <StatusBadge status={row.status} /> },
+    { key: 'status', header: t.status, render: (row: AdminBooking) => <StatusBadge status={row.status} /> },
     { key: 'actions', header: '', render: (row: AdminBooking) => (
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={(e) => e.stopPropagation()}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(row); changeForm.reset(); setChangeOpen(true) }}>Change status</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>{t.view}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(row); changeForm.reset(); setChangeOpen(true) }}>{t.changeStatus}</DropdownMenuItem>
           {row.status !== 'cancelled' && (
-            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); setCancelOpen(true) }}>Cancel</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); setCancelOpen(true) }}>{t.cancel}</DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -139,30 +141,30 @@ export default function BookingsPage() {
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Bookings']} title="Bookings" />
+      <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
       <FilterBar
-        search={{ placeholder: 'Search by booking # or renter…', value: search, onChange: setSearch }}
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
         selects={[
-          { label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
-          { label: 'Delivery', value: deliveryFilter, onChange: setDeliveryFilter, options: DELIVERY_OPTIONS },
+          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
+          { label: t.delivery, value: deliveryFilter, onChange: setDeliveryFilter, options: deliveryOptions },
         ]}
       />
       <DataTable
         columns={COLUMNS}
         data={bookings}
         loading={isLoading}
-        empty={<EmptyState icon={CalendarCheck} heading="No bookings yet" sub="Bookings appear here when renters complete checkout." />}
+        empty={<EmptyState icon={CalendarCheck} heading={t.noBookings} sub={t.noBookingsSub} />}
       />
 
       <DetailDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        title={selected ? `Booking #${selected.bookingNo}` : ''}
+        title={selected ? `${t.bookingNo} ${selected.bookingNo}` : ''}
         subtitle={selected?.status}
         footer={
           <button className="bg-gf-red text-white border-0 rounded-full [padding:11px_22px] font-semibold cursor-pointer w-full"
             onClick={() => { setDrawerOpen(false); if (selected) setCancelOpen(true) }}>
-            Cancel Booking
+            {t.cancelBooking}
           </button>
         }
       >
@@ -170,12 +172,12 @@ export default function BookingsPage() {
           <div>
             <div className="grid [grid-template-columns:1fr_1fr] gap-[16px] [margin-bottom:20px]">
               <div>
-                <div className="text-[11px] font-semibold text-gf-muted [margin-bottom:6px] uppercase [letter-spacing:0.5px]">Renter</div>
+                <div className="text-[11px] font-semibold text-gf-muted [margin-bottom:6px] uppercase [letter-spacing:0.5px]">{t.renter}</div>
                 <div className="font-semibold text-[14px]">{selected.renter.displayName}</div>
                 <div className="text-[12.5px] text-gf-muted">{selected.renter.email}</div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-gf-muted [margin-bottom:6px] uppercase [letter-spacing:0.5px]">Camera</div>
+                <div className="text-[11px] font-semibold text-gf-muted [margin-bottom:6px] uppercase [letter-spacing:0.5px]">{t.camera}</div>
                 <span className="flex items-center gap-[8px]">
                   <CameraGlyph size={32} color={selected.camera.color} />
                   <span className="font-semibold text-[13px]">{selected.camera.name}</span>
@@ -184,10 +186,10 @@ export default function BookingsPage() {
             </div>
             <Separator className="[margin:0_0_16px]" />
             {[
-              { label: 'Rental fee', value: `${money(selected.rentalFee)} THB` },
-              { label: 'Delivery fee', value: `${money(selected.deliveryFee)} THB` },
-              { label: 'Discount', value: selected.discount ? `−${money(selected.discount)} THB` : '—' },
-              { label: 'Total', value: `${money(selected.total)} THB`, bold: true },
+              { label: t.rentalFee, value: `${money(selected.rentalFee)} THB` },
+              { label: t.deliveryFee, value: `${money(selected.deliveryFee)} THB` },
+              { label: t.discount, value: selected.discount ? `−${money(selected.discount)} THB` : '—' },
+              { label: t.total, value: `${money(selected.total)} THB`, bold: true },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:9px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
@@ -196,9 +198,9 @@ export default function BookingsPage() {
             ))}
             <div className="[margin-top:16px]">
               {[
-                { label: 'Delivery', value: selected.delivery },
-                { label: 'Dates', value: `${selected.startDate} – ${selected.endDate}` },
-                { label: 'Payment', value: selected.paymentMethod === 'qr' ? 'Thai QR' : 'VISA/Mastercard' },
+                { label: t.delivery, value: selected.delivery },
+                { label: t.dates, value: `${selected.startDate} – ${selected.endDate}` },
+                { label: t.payment, value: selected.paymentMethod === 'qr' ? t.thaiQr : t.card },
               ].map(r => (
                 <div key={r.label} className="flex justify-between [padding:9px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                   <span className="text-gf-muted">{r.label}</span>
@@ -214,8 +216,8 @@ export default function BookingsPage() {
       <FormDialog
         open={changeOpen}
         onOpenChange={setChangeOpen}
-        title="Change Booking Status"
-        submitLabel="Update"
+        title={t.changeTitle}
+        submitLabel={t.update}
         onSubmit={changeForm.handleSubmit((data) => {
           if (selected) changeStatusMutation.mutate({ id: selected.id, status: data.status, note: data.note })
           setChangeOpen(false)
@@ -223,17 +225,17 @@ export default function BookingsPage() {
       >
         <form className="flex flex-col gap-[14px]">
           <div>
-            <Label>New status</Label>
+            <Label>{t.newStatus}</Label>
             <Select value={changeForm.watch('status') ?? ''} onValueChange={(v) => changeForm.setValue('status', v ?? '')}>
-              <SelectTrigger className="[margin-top:6px] rounded-full h-[40px]"><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectTrigger className="mt-1.5"><SelectValue placeholder={t.selectStatus} /></SelectTrigger>
               <SelectContent>
-                {STATUS_OPTIONS.filter(o => o.value).map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                {statusOptions.filter(o => o.value).map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Note (optional)</Label>
-            <Textarea {...changeForm.register('note')} placeholder="Reason for status change…" className="[margin-top:6px]" />
+            <Label>{t.note}</Label>
+            <Textarea {...changeForm.register('note')} placeholder={t.notePlaceholder} className="[margin-top:6px]" />
           </div>
         </form>
       </FormDialog>
@@ -241,8 +243,8 @@ export default function BookingsPage() {
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
-        title="Cancel this booking?"
-        description="The booking will be marked as cancelled. This cannot be undone."
+        title={t.cancelTitle}
+        description={t.cancelDescription}
         destructive
         onConfirm={() => { if (selected) cancelMutation.mutate(selected.id); setCancelOpen(false) }}
       />

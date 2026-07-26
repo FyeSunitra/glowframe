@@ -19,16 +19,16 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/useToast'
+import { getPageText } from '@/lib/menuI18n'
+import { useAppStore } from '@/store/appStore'
 
 interface Report { id: number; reporter: string; entity: string; entityType: string; reason: string; details: string; submitted: string; status: string }
-
-const REASON_OPTIONS = [{ value: '', label: 'All reasons' }, { value: 'fraud', label: 'Fraud' }, { value: 'fake-listing', label: 'Fake listing' }, { value: 'scam', label: 'Scam' }, { value: 'inappropriate', label: 'Inappropriate' }, { value: 'other', label: 'Other' }]
-const STATUS_OPTIONS = [{ value: '', label: 'All statuses' }, { value: 'open', label: 'Open' }, { value: 'resolved', label: 'Resolved' }, { value: 'dismissed', label: 'Dismissed' }]
 
 const warnSchema = z.object({ message: z.string().min(1) })
 type WarnForm = z.infer<typeof warnSchema>
 
 export default function ReportsPage() {
+  const t = getPageText(useAppStore((s) => s.locale), 'adminReports')
   const { showToast } = useToast()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -47,32 +47,46 @@ export default function ReportsPage() {
     queryFn: () => axios.get('/api/admin/trust/reports', { params: filters }).then(r => r.data.data),
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'trust', 'reports'] })
-  const dismissMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/reports/${id}`, { action: 'dismiss' }), onSuccess: () => { invalidate(); showToast('Report dismissed') } })
+  const dismissMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/reports/${id}`, { action: 'dismiss' }), onSuccess: () => { invalidate(); showToast(t.reportDismissed) } })
   const warnForm = useForm<WarnForm>({ resolver: zodResolver(warnSchema) })
+  const reasonOptions = [
+    { value: '', label: t.allReasons },
+    { value: 'fraud', label: t.fraud },
+    { value: 'fake-listing', label: t.fakeListing },
+    { value: 'scam', label: t.scam },
+    { value: 'inappropriate', label: t.inappropriate },
+    { value: 'other', label: t.other },
+  ]
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    { value: 'open', label: t.open },
+    { value: 'resolved', label: t.resolved },
+    { value: 'dismissed', label: t.dismissed },
+  ]
 
   const COLUMNS = [
-    { key: 'reporter', header: 'Reporter', render: (r: Report) => r.reporter },
-    { key: 'entity', header: 'Reported entity', render: (r: Report) => (
+    { key: 'reporter', header: t.reporter, render: (r: Report) => r.reporter },
+    { key: 'entity', header: t.reportedEntity, render: (r: Report) => (
       <span>
         <span className="text-[11px] [padding:2px_7px] rounded-full bg-gf-pink-100 text-gf-brown-700 font-semibold [margin-right:6px]">{r.entityType}</span>
         {r.entity}
       </span>
     )},
-    { key: 'reason', header: 'Reason', render: (r: Report) => <span className="[text-transform:capitalize]">{r.reason.replace('-', ' ')}</span> },
-    { key: 'details', header: 'Details', render: (r: Report) => <span className="text-[12.5px] text-gf-muted">{r.details.slice(0, 80)}{r.details.length > 80 ? '…' : ''}</span> },
-    { key: 'submitted', header: 'Submitted', render: (r: Report) => <span className="text-[12.5px] text-gf-muted">{r.submitted}</span> },
-    { key: 'status', header: 'Status', render: (r: Report) => <StatusBadge status={r.status} /> },
+    { key: 'reason', header: t.reason, render: (r: Report) => <span className="[text-transform:capitalize]">{r.reason.replace('-', ' ')}</span> },
+    { key: 'details', header: t.details, render: (r: Report) => <span className="text-[12.5px] text-gf-muted">{r.details.slice(0, 80)}{r.details.length > 80 ? '…' : ''}</span> },
+    { key: 'submitted', header: t.submitted, render: (r: Report) => <span className="text-[12.5px] text-gf-muted">{r.submitted}</span> },
+    { key: 'status', header: t.status, render: (r: Report) => <StatusBadge status={r.status} /> },
     { key: 'actions', header: '', render: (r: Report) => (
       <DropdownMenu>
         <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>View</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); warnForm.reset(); setWarnOpen(true) }}>Warn user</DropdownMenuItem>
-          {r.entityType === 'listing' && <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); setRemoveOpen(true) }}>Remove listing</DropdownMenuItem>}
-          <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); setSuspendOpen(true) }}>Suspend user</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setDismissOpen(true) }}>Dismiss</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{t.view}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); warnForm.reset(); setWarnOpen(true) }}>{t.warnUser}</DropdownMenuItem>
+          {r.entityType === 'listing' && <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); setRemoveOpen(true) }}>{t.removeListing}</DropdownMenuItem>}
+          <DropdownMenuItem variant="destructive" onClick={() => { setSelected(r); setSuspendOpen(true) }}>{t.suspendUser}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelected(r); setDismissOpen(true) }}>{t.dismiss}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -80,24 +94,24 @@ export default function ReportsPage() {
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Trust & Safety', 'Reports']} title="Reports" />
+      <AdminPageHeader breadcrumb={['Admin', t.trustSafety, t.title]} title={t.title} />
       <FilterBar
-        search={{ placeholder: 'Search reporter or entity…', value: search, onChange: setSearch }}
+        search={{ placeholder: t.search, value: search, onChange: setSearch }}
         selects={[
-          { label: 'Reason', value: reasonFilter, onChange: setReasonFilter, options: REASON_OPTIONS },
-          { label: 'Status', value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
+          { label: t.reason, value: reasonFilter, onChange: setReasonFilter, options: reasonOptions },
+          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
         ]}
       />
-      <DataTable columns={COLUMNS} data={reports} loading={isLoading} empty={<EmptyState icon={Flag} heading="No reports submitted" sub="User-submitted reports appear here." />} />
+      <DataTable columns={COLUMNS} data={reports} loading={isLoading} empty={<EmptyState icon={Flag} heading={t.noReports} sub={t.noReportsSub} />} />
 
-      <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={`Report — ${selected?.entity ?? ''}`} subtitle={selected?.reason}>
+      <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={`${t.reportPrefix} — ${selected?.entity ?? ''}`} subtitle={selected?.reason}>
         {selected && (
           <div>
             {[
-              { label: 'Reporter', value: selected.reporter },
-              { label: 'Reported entity', value: `${selected.entityType}: ${selected.entity}` },
-              { label: 'Reason', value: selected.reason },
-              { label: 'Submitted', value: selected.submitted },
+              { label: t.reporter, value: selected.reporter },
+              { label: t.reportedEntity, value: `${selected.entityType}: ${selected.entity}` },
+              { label: t.reason, value: selected.reason },
+              { label: t.submitted, value: selected.submitted },
             ].map(r => (
               <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
@@ -109,12 +123,12 @@ export default function ReportsPage() {
         )}
       </DetailDrawer>
 
-      <FormDialog open={warnOpen} onOpenChange={setWarnOpen} title="Warn User" submitLabel="Send warning" onSubmit={warnForm.handleSubmit(() => { showToast('Warning sent'); setWarnOpen(false) })}>
-        <form><Label>Warning message</Label><Textarea {...warnForm.register('message')} placeholder="Describe the policy violation…" className="[margin-top:6px]" /></form>
+      <FormDialog open={warnOpen} onOpenChange={setWarnOpen} title={t.warnTitle} submitLabel={t.sendWarning} onSubmit={warnForm.handleSubmit(() => { showToast(t.warningSent); setWarnOpen(false) })}>
+        <form><Label>{t.warningMessage}</Label><Textarea {...warnForm.register('message')} placeholder={t.warningPlaceholder} className="[margin-top:6px]" /></form>
       </FormDialog>
-      <ConfirmDialog open={removeOpen} onOpenChange={setRemoveOpen} title="Remove this listing?" description="The listing will be taken down immediately." destructive onConfirm={() => { showToast('Listing removed'); setRemoveOpen(false) }} />
-      <ConfirmDialog open={suspendOpen} onOpenChange={setSuspendOpen} title="Suspend this user?" description="The user will lose access to the platform." destructive onConfirm={() => { showToast('Account suspended'); setSuspendOpen(false) }} />
-      <ConfirmDialog open={dismissOpen} onOpenChange={setDismissOpen} title="Dismiss this report?" description="The report will be marked as dismissed." onConfirm={() => { if (selected) dismissMutation.mutate(selected.id); setDismissOpen(false) }} />
+      <ConfirmDialog open={removeOpen} onOpenChange={setRemoveOpen} title={t.removeTitle} description={t.removeDescription} destructive onConfirm={() => { showToast(t.listingRemoved); setRemoveOpen(false) }} />
+      <ConfirmDialog open={suspendOpen} onOpenChange={setSuspendOpen} title={t.suspendTitle} description={t.suspendDescription} destructive onConfirm={() => { showToast(t.accountSuspended); setSuspendOpen(false) }} />
+      <ConfirmDialog open={dismissOpen} onOpenChange={setDismissOpen} title={t.dismissTitle} description={t.dismissDescription} onConfirm={() => { if (selected) dismissMutation.mutate(selected.id); setDismissOpen(false) }} />
     </div>
   )
 }

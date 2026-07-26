@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { useToast } from '@/hooks/useToast'
 import { cn } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 interface AuditEntry {
   id: number
@@ -33,6 +34,7 @@ function formatTs(ts: string) {
 }
 
 export default function AuditLogPage() {
+  const { tr } = useMenuI18n()
   const [search, setSearch] = useState('')
   const [actorFilter, setActorFilter] = useState('')
   const [actionFilter, setActionFilter] = useState('')
@@ -73,7 +75,7 @@ export default function AuditLogPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Legal', 'Audit Log']}
         title="Audit Log"
-        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">Export CSV</button>}
+        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('Export CSV')}</button>}
       />
       <FilterBar
         search={{ placeholder: 'Search actor or entity ID…', value: search, onChange: setSearch }}
@@ -88,7 +90,7 @@ export default function AuditLogPage() {
         {selectedEntry && (
           <div className="grid [grid-template-columns:1fr_1fr] gap-[12px]">
             <div>
-              <div className="text-[12px] font-semibold text-gf-muted [margin-bottom:8px]">BEFORE</div>
+              <div className="text-[12px] font-semibold text-gf-muted [margin-bottom:8px]">{tr('BEFORE')}</div>
               <pre className="bg-gf-pink-100 rounded-[10px] [padding:14px] text-[12px] [margin:0] overflow-x-auto">
                 {JSON.stringify(selectedEntry.delta.before, null, 2).split('\n').map((line, i) => {
                   const key = line.match(/"(\w+)":/)?.[1]
@@ -100,7 +102,7 @@ export default function AuditLogPage() {
               </pre>
             </div>
             <div>
-              <div className="text-[12px] font-semibold text-gf-muted [margin-bottom:8px]">AFTER</div>
+              <div className="text-[12px] font-semibold text-gf-muted [margin-bottom:8px]">{tr('AFTER')}</div>
               <pre className="bg-gf-pink-100 rounded-[10px] [padding:14px] text-[12px] [margin:0] overflow-x-auto">
                 {JSON.stringify(selectedEntry.delta.after, null, 2).split('\n').map((line, i) => {
                   const key = line.match(/"(\w+)":/)?.[1]

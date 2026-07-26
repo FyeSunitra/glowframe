@@ -10,6 +10,7 @@ import { StatCard } from '@/components/admin/shared/StatCard'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { money } from '@/lib/utils'
+import { useMenuI18n } from '@/hooks/useMenuI18n'
 
 const PERIOD_OPTIONS = [{ value: 'monthly', label: 'Monthly' }, { value: 'weekly', label: 'Weekly' }]
 const LOOKBACK_OPTIONS = [{ value: '3-months', label: 'Last 3 months' }, { value: '6-months', label: 'Last 6 months' }, { value: '12-months', label: 'Last 12 months' }]
@@ -34,6 +35,7 @@ function cellTextColor(val: number | null): string {
 }
 
 export default function CohortPage() {
+  const { tr } = useMenuI18n()
   const [period, setPeriod] = useState('monthly')
   const [lookback, setLookback] = useState('6-months')
 
@@ -92,7 +94,7 @@ export default function CohortPage() {
       <AdminPageHeader
         breadcrumb={['Admin', 'Analytics', 'Cohort & Retention']}
         title="Cohort & Retention"
-        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">Export CSV</button>}
+        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('Export CSV')}</button>}
       />
       <FilterBar selects={[
         { label: 'Period', value: period, onChange: setPeriod, options: PERIOD_OPTIONS },
@@ -107,7 +109,7 @@ export default function CohortPage() {
       </div>
 
       <div className="mb-[22px] rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-        <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Signup-to-booking cohort</div>
+        <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Signup-to-booking cohort')}</div>
         {cohortRows.length === 0 && !isLoading ? (
           <EmptyState icon={PieChart} heading="Not enough data yet" sub="Cohort data appears after the first full month of signups." />
         ) : (
@@ -117,11 +119,11 @@ export default function CohortPage() {
 
       <div className="grid [grid-template-columns:1fr_1fr] gap-[22px]">
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Owner activation funnel</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Owner activation funnel')}</div>
           <DataTable columns={FUNNEL_COLS} data={data?.activationFunnel ?? []} loading={isLoading} />
         </div>
         <div className="rounded-[22px] bg-white p-7 shadow-[var(--gf-shadow)]">
-          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">Repeat rental rate</div>
+          <div className="text-[15px] font-semibold text-gf-brown-900 [margin-bottom:16px]">{tr('Repeat rental rate')}</div>
           <DataTable columns={REPEAT_COLS} data={data?.repeatRate ?? []} loading={isLoading} />
         </div>
       </div>

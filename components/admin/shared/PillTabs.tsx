@@ -1,6 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { translateText } from '@/lib/menuI18n';
+import { useAppStore } from '@/store/appStore';
 
 interface PillTabsProps<T extends string> {
   items: readonly T[];
@@ -9,6 +11,7 @@ interface PillTabsProps<T extends string> {
 }
 
 export function PillTabs<T extends string>({ items, value, onChange }: PillTabsProps<T>) {
+  const locale = useAppStore((state) => state.locale);
   return (
     <div className="mb-[22px] flex w-fit rounded-full bg-gf-pink-100 p-1.5">
       {items.map((item) => (
@@ -21,7 +24,7 @@ export function PillTabs<T extends string>({ items, value, onChange }: PillTabsP
             value === item ? 'bg-gf-pink-500 text-gf-brown-900' : 'bg-transparent text-gf-brown-700',
           )}
         >
-          {item}
+          {translateText(locale, item)}
         </button>
       ))}
     </div>
