@@ -8,11 +8,12 @@ interface PolicyDocumentRow {
   id: bigint
   version: string
   type: PolicyDocumentType
-  title: string
+  titleTh: string
+  titleEn: string
   effectiveAt: Date | null
   publishedAt: Date | null
-  summary: string | null
-  body: string
+  bodyTh: string
+  bodyEn: string
   forceReconsent: boolean
   isRequired: boolean
   status: PolicyDocumentStatus
@@ -31,11 +32,12 @@ function serializePolicy(document: PolicyDocumentRow, totalUsers: number) {
     id: Number(document.id),
     version: document.version,
     docType: document.type,
-    title: document.title,
+    titleTh: document.titleTh,
+    titleEn: document.titleEn,
     effectiveDate: document.effectiveAt?.toISOString() ?? null,
     publishedAt: document.publishedAt?.toISOString() ?? null,
-    summary: document.summary ?? '',
-    body: document.body,
+    bodyTh: document.bodyTh,
+    bodyEn: document.bodyEn,
     usersAccepted,
     totalUsers,
     forceReconsent: document.forceReconsent,
@@ -64,13 +66,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid policy document type' }, { status: 400 })
   }
 
+  const requiredTextFields = ['version', 'titleTh', 'titleEn', 'bodyTh', 'bodyEn'] as const
+  if (requiredTextFields.some((field) => typeof body[field] !== 'string' || body[field].trim() === '')) {
+    return NextResponse.json(
+      { error: 'Thai and English titles and document content are required' },
+      { status: 400 },
+    )
+  }
+
   const document = await prisma.policyDocument.create({
     data: {
       type,
-      title: body.title,
-      version: body.version,
-      summary: body.summary,
-      body: body.body,
+      titleTh: body.titleTh.trim(),
+      titleEn: body.titleEn.trim(),
+      version: body.version.trim(),
+      bodyTh: body.bodyTh.trim(),
+      bodyEn: body.bodyEn.trim(),
       isRequired: body.isRequired ?? true,
       forceReconsent: body.requireReconsent ?? false,
       effectiveAt: body.effectiveDate ? new Date(body.effectiveDate) : null,

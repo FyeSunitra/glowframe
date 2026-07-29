@@ -9,6 +9,8 @@ import {
   FileText,
   ClipboardList,
   Layers3,
+  AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
@@ -38,8 +40,8 @@ const SECTIONS = [
     items: [
       { href: '/admin/trust/kyc',     labelKey: 'kycIdentity', icon: ShieldCheck },
       { href: '/admin/trust/reports', labelKey: 'reports',     icon: Flag },
-      // { href: '/admin/trust/disputes', label: 'Disputes',     icon: AlertTriangle }, // out of scope
-      // { href: '/admin/trust/fraud',    label: 'Fraud Signals', icon: Zap },           // out of scope
+      { href: '/admin/trust/disputes', labelKey: 'disputes',     icon: AlertTriangle }, // out of scope
+      // { href: '/admin/trust/fraud',    labelKey: 'Fraud Signals', icon: Zap },           // out of scope
     ],
   },
   // Financial — out of scope

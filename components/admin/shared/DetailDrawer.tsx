@@ -23,7 +23,10 @@ export function DetailDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[480px] flex flex-col [padding:0]">
+      <SheetContent
+        side="right"
+        className="flex w-[92vw] flex-col p-0 data-[side=right]:w-[92vw] data-[side=right]:sm:max-w-[620px]"
+      >
         <SheetHeader className="[padding:24px_24px_0]">
           <SheetTitle className="text-[18px] font-bold text-gf-brown-900">
             {translateText(locale, title)}

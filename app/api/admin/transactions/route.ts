@@ -1,23 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const ADMIN_TRANSACTIONS = [
-  { id: 1, txnId: 'TXN-20260712-001', bookingNo: '123456-78', user: { displayName: 'Somchai P.', email: 'somchai@example.com' }, method: 'qr', rentalFee: 4500, deliveryFee: 200, deposit: 5000, total: 9700, platformFee: 470, date: '12 Jul 2026', status: 'paid', proofFile: 'transfer-123456-78.jpg' },
-  { id: 2, txnId: 'TXN-20260710-002', bookingNo: '234567-89', user: { displayName: 'Ploy S.', email: 'ploy@example.com' }, method: 'qr', rentalFee: 2400, deliveryFee: 0, deposit: 4500, total: 6900, platformFee: 240, date: '10 Jul 2026', status: 'pending_review', proofFile: 'payment-proof-234567-89.png' },
-  { id: 3, txnId: 'TXN-20260708-003', bookingNo: '345678-90', user: { displayName: 'Pim A.', email: 'pim@example.com' }, method: 'qr', rentalFee: 1300, deliveryFee: 150, total: 1450, platformFee: 145, date: '8 Jul 2026', status: 'paid' },
-  { id: 4, txnId: 'TXN-20260705-004', bookingNo: '456789-01', user: { displayName: 'Teerapat W.', email: 'teerapat@example.com' }, method: 'qr', rentalFee: 2850, deliveryFee: 200, total: 3050, platformFee: 305, date: '5 Jul 2026', status: 'refunded' },
-  { id: 5, txnId: 'TXN-20260701-005', bookingNo: '567890-12', user: { displayName: 'Narin K.', email: 'narin@example.com' }, method: 'card', rentalFee: 1900, deliveryFee: 200, total: 2100, platformFee: 210, date: '1 Jul 2026', status: 'paid' },
-]
+import { getAdminRequestContext } from '@/lib/auth/adminRequest'
+import {
+  createSupabaseAuthClient,
+  setSessionCookies,
+} from '@/lib/auth/server'
+import { PaymentStatus, Prisma } from '@/lib/generated/prisma/client'
+import { prisma } from '@/lib/prisma'
+import {
+  adminTransactionInclude,
+  serializeAdminTransaction,
+} from './_utils'
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const search = searchParams.get('search') ?? ''
-  const method = searchParams.get('method') ?? ''
-  const status = searchParams.get('status') ?? ''
+const paymentStatuses = new Set(Object.values(PaymentStatus))
 
-  let result = [...ADMIN_TRANSACTIONS]
-  if (search) result = result.filter(t => t.txnId.toLowerCase().includes(search.toLowerCase()) || t.bookingNo.includes(search))
-  if (method) result = result.filter(t => t.method === method)
-  if (status) result = result.filter(t => t.status === status)
+export async function GET(request: NextRequest) {
+  try {
+    const admin = await getAdminRequestContext()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+    }
 
-  return NextResponse.json({ data: result })
+    const page = positiveInteger(request.nextUrl.searchParams.get('page'), 1)
+    const limit = Math.min(
+      positiveInteger(request.nextUrl.searchParams.get('limit'), 10),
+      50,
+    )
+    const search = request.nextUrl.searchParams.get('search')?.trim() ?? ''
+    const method = request.nextUrl.searchParams.get('method')
+    const statusParam = request.nextUrl.searchParams.get('status')
+    const status = statusParam && paymentStatuses.has(statusParam as PaymentStatus)
+      ? statusParam as PaymentStatus
+      : undefined
+
+    const where: Prisma.PaymentWhereInput = {
+      ...(status ? { status } : {}),
+      ...(method === 'promptpay'
+        ? { platformPaymentAccount: { bank: { code: 'PROMPTPAY' } } }
+        : method === 'bank_transfer'
+          ? { platformPaymentAccount: { bank: { code: { not: 'PROMPTPAY' } } } }
+          : {}),
+      ...(search
+        ? {
+            OR: [
+              { booking: { bookingNo: { contains: search, mode: 'insensitive' } } },
+              { payer: { displayName: { contains: search, mode: 'insensitive' } } },
+              { payer: { email: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    }
+
+    const [payments, total, settings] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: adminTransactionInclude,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+      prisma.platformSetting.findUnique({
+        where: { id: 1 },
+        select: { platformFee: true },
+      }),
+    ])
+    const platformFeeRate = Number(settings?.platformFee ?? 0)
+    let storage:
+      | ReturnType<typeof createSupabaseAuthClient>['storage']
+      | null = null
+    if (admin.accessToken && admin.refreshToken) {
+      const supabase = createSupabaseAuthClient()
+      const { error } = await supabase.auth.setSession({
+        access_token: admin.accessToken,
+        refresh_token: admin.refreshToken,
+      })
+      if (!error) storage = supabase.storage
+    }
+    const proofBucket =
+      process.env.SUPABASE_PAYMENT_BUCKET ??
+      process.env.SUPABASE_IDENTITY_BUCKET ??
+      'identity-documents'
+    const data = await Promise.all(payments.map(async (payment) => {
+      const signed = storage && payment.proofStoragePath
+        ? await storage
+            .from(proofBucket)
+            .createSignedUrl(payment.proofStoragePath, 300)
+        : null
+      if (signed?.error) {
+        console.error('Failed to create payment-proof signed URL', {
+          paymentId: payment.id.toString(),
+          message: signed.error.message,
+        })
+      }
+      return serializeAdminTransaction(
+        payment,
+        platformFeeRate,
+        signed?.data?.signedUrl ?? null,
+      )
+    }))
+
+    const response = NextResponse.json({
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    })
+    if (admin.refreshedSession) {
+      setSessionCookies(response, admin.refreshedSession)
+    }
+    return response
+  } catch (error) {
+    console.error('Failed to load admin transactions', error)
+    return NextResponse.json(
+      { error: 'Unable to load payment transactions.' },
+      { status: 500 },
+    )
+  }
+}
+
+function positiveInteger(value: string | null, fallback: number) {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
 }

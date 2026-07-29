@@ -31,14 +31,20 @@ export interface Product {
     name: string;
   };
   brand?: {
-    id: number;
+    id?: number;
     name: string;
   };
   model?: string;
+  serialNumber?: string;
   conditionNote?: string;
   extraDetails?: string;
+  rejectionReason?: string;
+  pickupAddressId?: number;
+  customBrandName?: string;
+  masterAccessories?: Array<{ accessoryId: number; quantity: number }>;
+  customAccessories?: Array<{ name: string; quantity: number }>;
   accessories?: Array<{
-    id: number;
+    id: number | string;
     name: string;
     quantity: number;
   }>;
@@ -58,7 +64,7 @@ export interface Product {
     district: string;
     province: string;
   };
-  status?: 'pending' | 'approved' | 'active' | 'rejected' | 'hidden' | 'archived';
+  status?: 'draft' | 'pending' | 'approved' | 'active' | 'rejected' | 'hidden' | 'archived';
   unavailableDates?: string[];
 }
 
@@ -69,14 +75,13 @@ export interface BookingState {
   productId: number | null;
   dayOption: DayOption;
   delivery: DeliveryOption;
-  selectedDate: number | null;
-  calMonth: number;
-  calYear: number;
   total?: number;
   days?: number;
+  bookingId?: number;
   bookingNo?: string;
   startDate?: string;
   endDate?: string;
+  paymentAccountId?: number;
   paymentProofName?: string;
   paymentStatus?: 'not_started' | 'pending_review' | 'approved' | 'rejected';
 }
@@ -85,6 +90,7 @@ export interface AddProductState {
   title: string;
   categoryId: number | null;
   brandId: number | null;
+  customBrandName: string;
   model: string;
   serialNumber: string;
   description: string;
@@ -94,10 +100,12 @@ export interface AddProductState {
   depositAmount: string;
   pickupAddressId: number | null;
   accessories: Array<{ accessoryId: number; quantity: number }>;
+  customAccessories: import('./product').ProductCustomAccessoryInput[];
 }
 
 export interface TxnPayState {
   method: 'qr' | 'card' | null;
+  paymentAccountId: number | null;
   agree: boolean;
 }
 
@@ -119,3 +127,4 @@ export interface Wallet {
 export type { ApiResponse } from './api';
 export type * from './adminSettings';
 export type * from './masterData';
+export type * from './product';

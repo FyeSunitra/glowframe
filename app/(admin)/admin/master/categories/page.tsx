@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
+import { Pagination } from '@/components/common/Pagination'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
@@ -23,7 +24,7 @@ import { useToast } from '@/hooks/useToast'
 import { unwrapApiResponse } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { masterDataService } from '@/services/masterData'
-import type { Category } from '@/types/masterData'
+import type { Category, MasterListResult } from '@/types/masterData'
 import { getPageText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
 
@@ -41,11 +42,15 @@ export default function CategoriesPage() {
   const [editTarget, setEditTarget] = useState<Category | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
-  const { data: categories = [], isLoading } = useQuery<Category[]>({
-    queryKey: ['admin', 'master', 'categories'],
-    queryFn: async () => unwrapApiResponse(await masterDataService.categories.list()).items,
+  const { data: categoryResult, isLoading } = useQuery<MasterListResult<Category>>({
+    queryKey: ['admin', 'master', 'categories', page, limit],
+    queryFn: async () =>
+      unwrapApiResponse(await masterDataService.categories.list({ page, limit })),
   })
+  const categories = categoryResult?.items ?? []
 
   const invalidate = () => queryClient.invalidateQueries({
     queryKey: ['admin', 'master', 'categories'],
@@ -77,6 +82,7 @@ export default function CategoriesPage() {
     mutationFn: (id: number) =>
       masterDataService.categories.delete(id).then(unwrapApiResponse),
     onSuccess: () => {
+      if (categories.length === 1 && page > 1) setPage((current) => current - 1)
       invalidate()
       showToast(t.deleted)
     },
@@ -192,6 +198,17 @@ export default function CategoriesPage() {
             sub={t.emptySub}
           />
         }
+      />
+      <Pagination
+        page={page}
+        limit={limit}
+        total={categoryResult?.meta.total ?? 0}
+        totalPages={categoryResult?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+        onLimitChange={(nextLimit) => {
+          setLimit(nextLimit)
+          setPage(1)
+        }}
       />
 
       <FormDialog

@@ -18,6 +18,8 @@ export default function SignupVerifyPage() {
   const [isVerifying, setIsVerifying] = useState(false)
   const [isResending, setIsResending] = useState(false)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
+  const suppressMissingEmailRedirectRef = useRef(false)
+  const missingEmailHandledRef = useRef(false)
   const locale = useAppStore((state) => state.locale)
   const setLocale = useAppStore((state) => state.setLocale)
   const login = useAppStore((state) => state.login)
@@ -28,10 +30,15 @@ export default function SignupVerifyPage() {
   const t = getPageText(locale, 'signupOtp')
 
   useEffect(() => {
-    if (!email) {
-      showToast(t.emailMissing)
-      router.replace('/signup')
-    }
+    if (
+      email ||
+      suppressMissingEmailRedirectRef.current ||
+      missingEmailHandledRef.current
+    ) return
+
+    missingEmailHandledRef.current = true
+    showToast(t.emailMissing)
+    router.replace('/signup')
   }, [email, router, showToast, t.emailMissing])
 
   useEffect(() => {
@@ -97,10 +104,11 @@ export default function SignupVerifyPage() {
       return
     }
 
-    setPendingSignupEmail('')
+    suppressMissingEmailRedirectRef.current = true
     login(result.data.user)
     showToast(t.verified)
     router.replace('/home')
+    setPendingSignupEmail('')
   }
 
   async function handleResend() {
@@ -121,6 +129,7 @@ export default function SignupVerifyPage() {
   }
 
   function handleChangeEmail() {
+    suppressMissingEmailRedirectRef.current = true
     setPendingSignupEmail('')
     router.replace('/signup')
   }

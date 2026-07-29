@@ -1,9 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { Camera, MoreHorizontal } from 'lucide-react'
+import { Camera, MoreHorizontal, Play } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,7 +17,7 @@ import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
 import { CameraGlyph } from '@/components/common/CameraGlyph'
-import { TransactionHistory } from '@/components/features/wallet/TransactionHistory'
+import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
@@ -26,28 +26,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Field } from '@/components/admin/shared/Field'
 import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
-import type { WalletTransaction } from '@/types'
 import { getPageText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
-
-interface AdminProduct {
-  id: number
-  name: string
-  desc: string
-  price: number
-  deposit: number
-  color: string
-  rating: number
-  bookingCount: number
-  status: string
-  createdAt: string
-  owner: { id: number; displayName: string; email: string }
-}
-
-const MOCK_PRODUCT_BOOKINGS: WalletTransaction[] = [
-  { id: 1, name: 'Booking #123456-78', date: '12 Jul 2026', amt: 4500, status: 'paid' },
-  { id: 2, name: 'Booking #112233-44', date: '28 Jun 2026', amt: 4500, status: 'paid' },
-]
+import { unwrapApiResponse } from '@/lib/api'
+import { adminProductService } from '@/services/adminProducts'
+import type { AdminProduct } from '@/types/adminProduct'
 
 const listingSchema = z.object({
   name: z.string().min(1),
@@ -98,6 +81,7 @@ export default function ProductsPage() {
   const [priceFilter, setPriceFilter] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<AdminProduct | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [mediaPreviewIndex, setMediaPreviewIndex] = useState<number | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<AdminProduct | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -110,33 +94,38 @@ export default function ProductsPage() {
 
   const { data: products = [], isLoading } = useQuery<AdminProduct[]>({
     queryKey: ['admin', 'products', filters],
-    queryFn: () => axios.get('/api/admin/products', { params: filters }).then(r => r.data.data),
+    queryFn: async () => unwrapApiResponse(await adminProductService.list(filters)),
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'products'] })
 
   const approveMutation = useMutation({
-    mutationFn: (id: number) => axios.patch(`/api/admin/products/${id}`, { action: 'approve' }),
+    mutationFn: async (id: number) =>
+      unwrapApiResponse(await adminProductService.update(id, { action: 'approve' })),
     onSuccess: () => { invalidate(); showToast(t.approvedToast) },
   })
   const archiveMutation = useMutation({
-    mutationFn: (id: number) => axios.patch(`/api/admin/products/${id}`, { action: 'archive' }),
+    mutationFn: async (id: number) =>
+      unwrapApiResponse(await adminProductService.update(id, { action: 'archive' })),
     onSuccess: () => { invalidate(); showToast(t.archivedToast) },
   })
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => axios.delete(`/api/admin/products/${id}`),
+    mutationFn: async (id: number) =>
+      unwrapApiResponse(await adminProductService.remove(id)),
     onSuccess: () => { invalidate(); showToast(t.deletedToast) },
   })
   const saveMutation = useMutation({
-    mutationFn: (payload: Partial<ListingForm> & { id?: number }) => {
+    mutationFn: async (payload: ListingForm & { id: number }) => {
       const { id, ...body } = payload
-      return id ? axios.patch(`/api/admin/products/${id}`, body) : axios.post('/api/admin/products', body)
+      return unwrapApiResponse(await adminProductService.update(id, body))
     },
     onSuccess: () => { invalidate(); showToast(t.savedToast) },
   })
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
-      axios.patch(`/api/admin/products/${id}`, { action: 'reject', reason }),
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) =>
+      unwrapApiResponse(
+        await adminProductService.update(id, { action: 'reject', reason }),
+      ),
     onSuccess: () => { invalidate(); showToast(t.rejectedToast) },
   })
 
@@ -174,13 +163,35 @@ export default function ProductsPage() {
     setConfirmOpen(true)
   }
 
+  async function openProductDetail(row: AdminProduct) {
+    setSelectedProduct(row)
+    setDrawerOpen(true)
+    const response = await adminProductService.get(row.id)
+    if (response.success) setSelectedProduct(response.data)
+  }
+
   const COLUMNS = [
-    { key: 'camera', header: t.camera, render: (row: AdminProduct) => (
-      <span className="flex items-center gap-[10px] cursor-pointer" onClick={() => { setSelectedProduct(row); setDrawerOpen(true) }}>
-        <CameraGlyph size={32} color={row.color} />
-        <span className="font-semibold text-[13px]">{row.name}</span>
-      </span>
-    )},
+    { key: 'camera', header: t.camera, render: (row: AdminProduct) => {
+      const mainImage = row.media.find((item) => item.mediaType === 'image')
+      return (
+        <span className="flex cursor-pointer items-center gap-2.5" onClick={() => openProductDetail(row)}>
+          <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-gf-pink-100">
+            {mainImage ? (
+              <Image
+                src={mainImage.url}
+                alt={row.name}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              <CameraGlyph size={28} color={row.color} />
+            )}
+          </span>
+          <span className="font-semibold text-[13px]">{row.name}</span>
+        </span>
+      )
+    }},
     { key: 'owner', header: t.owner, render: (row: AdminProduct) => row.owner.displayName },
     { key: 'price', header: t.pricePerDay, render: (row: AdminProduct) => `${money(row.price)} THB` },
     { key: 'deposit', header: t.deposit, render: (row: AdminProduct) => `${money(row.deposit)} THB` },
@@ -208,14 +219,6 @@ export default function ProductsPage() {
       <AdminPageHeader
         breadcrumb={['Admin', t.title]}
         title={t.title}
-        action={
-          <button
-            onClick={() => { setEditTarget(null); listingForm.reset(); setFormOpen(true) }}
-            className="[border:1.5px_solid_var(--gf-brown-300)] text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold bg-transparent cursor-pointer"
-          >
-            {t.add}
-          </button>
-        }
       />
 
       <FilterBar
@@ -236,26 +239,122 @@ export default function ProductsPage() {
       <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selectedProduct?.name ?? ''} subtitle={selectedProduct?.owner.displayName}>
         {selectedProduct && (
           <div>
-            <div className="mb-5 flex h-[140px] items-center justify-center rounded-[16px]" style={{ background: `${selectedProduct.color}20` }}>
-              <CameraGlyph color={selectedProduct.color} size={80} />
-            </div>
+            {selectedProduct.media.length > 0 ? (
+              <div className="mb-5 grid grid-cols-2 gap-2">
+                {selectedProduct.media.map((item, index) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => setMediaPreviewIndex(index)}
+                    className={cn(
+                      'relative aspect-[4/3] cursor-zoom-in overflow-hidden rounded-[8px] border border-gf-line bg-white p-0',
+                      index === 0 && 'col-span-2',
+                    )}
+                  >
+                    {item.mediaType === 'image' ? (
+                      <Image
+                        src={item.url}
+                        alt={`${selectedProduct.name} ${index + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 420px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <span className="flex h-full items-center justify-center bg-black text-white">
+                        <Play size={30} fill="currentColor" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="mb-5 flex h-[140px] items-center justify-center rounded-[8px]"
+                style={{ background: `${selectedProduct.color}20` }}
+              >
+                <CameraGlyph color={selectedProduct.color} size={80} />
+              </div>
+            )}
             <p className="text-[13.5px] text-gf-brown-700 [margin-bottom:20px] [line-height:1.6]">{selectedProduct.desc}</p>
             {[
               { label: t.owner, value: selectedProduct.owner.displayName },
+              { label: t.ownerEmail, value: selectedProduct.owner.email },
+              { label: t.category, value: selectedProduct.categoryName },
+              { label: t.brand, value: selectedProduct.brandName },
+              { label: t.model, value: selectedProduct.model },
+              { label: t.serialNumber, value: selectedProduct.serialNumber ?? '-' },
+              { label: t.condition, value: selectedProduct.conditionNote ?? '-' },
+              { label: t.pickupPoint, value: selectedProduct.pickupAddress },
+              {
+                label: t.accessories,
+                value:
+                  selectedProduct.accessories
+                    .map((item) => `${item.name} x${item.quantity}`)
+                    .join(', ') || '-',
+              },
               { label: t.pricePerDay, value: `${money(selectedProduct.price)} THB` },
               { label: t.deposit, value: `${money(selectedProduct.deposit)} THB` },
+              { label: t.bookings, value: selectedProduct.bookingCount },
               { label: t.rating, value: '★'.repeat(selectedProduct.rating), yellow: true },
             ].map(r => (
-              <div key={r.label} className="flex justify-between [padding:12px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
+              <div key={r.label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b border-gf-line py-3 text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
-                <span className={cn('font-semibold', r.yellow && 'text-gf-yellow')}>{r.value}</span>
+                <span className={cn('break-words font-semibold text-gf-brown-900', r.yellow && 'text-gf-yellow')}>{r.value}</span>
               </div>
             ))}
-            <div className="[margin-top:24px] text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">{t.recentBookings}</div>
-            <TransactionHistory items={MOCK_PRODUCT_BOOKINGS} />
+            {selectedProduct.extraDetails && (
+              <div className="mt-5">
+                <h3 className="m-0 text-sm font-semibold text-gf-brown-900">{t.extraInfo}</h3>
+                <p className="mb-0 mt-2 whitespace-pre-wrap text-[13px] leading-6 text-gf-brown-700">
+                  {selectedProduct.extraDetails}
+                </p>
+              </div>
+            )}
+            {selectedProduct.rejectionReason && (
+              <div className="mt-5 rounded-[8px] bg-[#FAE0DA] p-4">
+                <h3 className="m-0 text-sm font-semibold text-gf-red">{t.rejectionReason}</h3>
+                <p className="mb-0 mt-2 text-[13px] leading-6 text-gf-brown-700">
+                  {selectedProduct.rejectionReason}
+                </p>
+              </div>
+            )}
+            {selectedProduct.status === 'pending' && (
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openConfirm(t.approveTitle, false, () => {
+                      approveMutation.mutate(selectedProduct.id)
+                      setConfirmOpen(false)
+                      setDrawerOpen(false)
+                    })
+                  }
+                  className="min-h-11 cursor-pointer rounded-full border-0 bg-gf-brown-800 px-4 text-sm font-semibold text-white"
+                >
+                  {t.approve}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openReject(selectedProduct)
+                    setDrawerOpen(false)
+                  }}
+                  className="min-h-11 cursor-pointer rounded-full border border-gf-red bg-white px-4 text-sm font-semibold text-gf-red"
+                >
+                  {t.reject}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </DetailDrawer>
+      <ProductMediaLightbox
+        media={selectedProduct?.media ?? []}
+        productName={selectedProduct?.name ?? ''}
+        initialIndex={mediaPreviewIndex}
+        onIndexChange={setMediaPreviewIndex}
+        onOpenChange={(open) => { if (!open) setMediaPreviewIndex(null) }}
+      />
 
       <FormDialog
         open={formOpen}
@@ -263,7 +362,7 @@ export default function ProductsPage() {
         title={editTarget ? t.editTitle : t.addTitle}
         submitLabel={editTarget ? t.saveChanges : t.addSubmit}
         onSubmit={listingForm.handleSubmit((data) => {
-          saveMutation.mutate({ ...data, id: editTarget?.id })
+          if (editTarget) saveMutation.mutate({ ...data, id: editTarget.id })
           setFormOpen(false)
         })}
       >

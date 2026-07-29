@@ -1,21 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const DISPUTES = [
-  { id: 1, disputeId: 'DSP-001', bookingNo: '123456-78', openedBy: 'renter', type: 'damage', claimAmount: 3000, opened: '15 Jul 2026', status: 'pending' },
-  { id: 2, disputeId: 'DSP-002', bookingNo: '234567-89', openedBy: 'owner', type: 'late-return', claimAmount: 800, opened: '14 Jul 2026', status: 'in-review' },
-  { id: 3, disputeId: 'DSP-003', bookingNo: '345678-90', openedBy: 'renter', type: 'mismatch', claimAmount: 2400, opened: '10 Jul 2026', status: 'resolved' },
-]
+import { getAdminRequestContext } from '@/lib/auth/adminRequest'
+import { setSessionCookies } from '@/lib/auth/server'
+import { BookingStatus, Prisma, ReturnStatus } from '@/lib/generated/prisma/client'
+import { prisma } from '@/lib/prisma'
+import { adminDisputeInclude, serializeAdminDispute } from './_utils'
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const search = searchParams.get('search') ?? ''
-  const type = searchParams.get('type') ?? ''
-  const tab = searchParams.get('tab') ?? 'pending'
-  let result = [...DISPUTES]
-  if (tab === 'pending') result = result.filter(d => d.status === 'pending')
-  else if (tab === 'in-review') result = result.filter(d => d.status === 'in-review')
-  else if (tab === 'resolved') result = result.filter(d => d.status === 'resolved')
-  if (search) result = result.filter(d => d.disputeId.includes(search) || d.bookingNo.includes(search))
-  if (type) result = result.filter(d => d.type === type)
-  return NextResponse.json({ data: result })
+export async function GET(request: NextRequest) {
+  try {
+    const admin = await getAdminRequestContext()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+    }
+
+    const page = positiveInteger(request.nextUrl.searchParams.get('page'), 1)
+    const limit = Math.min(
+      positiveInteger(request.nextUrl.searchParams.get('limit'), 10),
+      50,
+    )
+    const search = request.nextUrl.searchParams.get('search')?.trim() ?? ''
+    const status =
+      request.nextUrl.searchParams.get('status') === 'resolved'
+        ? 'resolved'
+        : 'pending'
+
+    const where: Prisma.RentalReturnWhereInput = {
+      damageDescription: { not: null },
+      ...(status === 'resolved'
+        ? { reviewedAt: { not: null } }
+        : {
+            reviewedAt: null,
+            status: ReturnStatus.damageReported,
+            booking: { status: BookingStatus.disputed },
+          }),
+      ...(search
+        ? {
+            OR: [
+              { booking: { bookingNo: { contains: search, mode: 'insensitive' } } },
+              { booking: { product: { title: { contains: search, mode: 'insensitive' } } } },
+              { booking: { renter: { displayName: { contains: search, mode: 'insensitive' } } } },
+              { booking: { owner: { displayName: { contains: search, mode: 'insensitive' } } } },
+            ],
+          }
+        : {}),
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.rentalReturn.findMany({
+        where,
+        include: adminDisputeInclude,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.rentalReturn.count({ where }),
+    ])
+
+    const response = NextResponse.json({
+      data: items.map(serializeAdminDispute),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    })
+    if (admin.refreshedSession) {
+      setSessionCookies(response, admin.refreshedSession)
+    }
+    return response
+  } catch (error) {
+    console.error('Failed to load admin damage claims', error)
+    return NextResponse.json(
+      { error: 'Unable to load damage claims.' },
+      { status: 500 },
+    )
+  }
+}
+
+function positiveInteger(value: string | null, fallback: number) {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
 }

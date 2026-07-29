@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import {
   PolicyDocumentStatus,
   PolicyDocumentType,
@@ -12,20 +12,32 @@ const requiredSignupTypes = [
   PolicyDocumentType.rentalAgreement,
 ]
 
-export async function GET() {
+const paymentTypes = [
+  PolicyDocumentType.rentalAgreement,
+  PolicyDocumentType.paymentPolicy,
+]
+
+export async function GET(req: NextRequest) {
+  const locale = req.nextUrl.searchParams.get('locale') === 'en' ? 'en' : 'th'
+  const context = req.nextUrl.searchParams.get('context') === 'payment'
+    ? 'payment'
+    : 'signup'
+  const documentTypes = context === 'payment' ? paymentTypes : requiredSignupTypes
   const documents = await prisma.policyDocument.findMany({
     where: {
-      type: { in: requiredSignupTypes },
+      type: { in: documentTypes },
       status: PolicyDocumentStatus.current,
-      isRequired: true,
+      ...(context === 'signup' ? { isRequired: true } : {}),
     },
     orderBy: [{ type: 'asc' }, { publishedAt: 'desc' }],
     select: {
       id: true,
       type: true,
-      title: true,
+      titleTh: true,
+      titleEn: true,
       version: true,
-      body: true,
+      bodyTh: true,
+      bodyEn: true,
       effectiveAt: true,
     },
   })
@@ -39,9 +51,9 @@ export async function GET() {
     data: [...latestByType.values()].map((document) => ({
       id: Number(document.id),
       type: document.type as RequiredPolicyType,
-      title: document.title,
+      title: locale === 'en' ? document.titleEn : document.titleTh,
       version: document.version,
-      body: document.body,
+      body: locale === 'en' ? document.bodyEn : document.bodyTh,
       effectiveAt: document.effectiveAt?.toISOString() ?? null,
     })),
   })

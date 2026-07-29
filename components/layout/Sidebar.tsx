@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home, Camera, User, Wallet, Info, LogOut,
+  Home, Camera, User, Wallet, Info, LogOut, CalendarRange,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/about',       labelKey: 'about',     icon: Info },
   { href: '/home',        labelKey: 'home',      icon: Home },
   { href: '/for-rent',    labelKey: 'forRent',   icon: Camera },
+  { href: '/rentals',     labelKey: 'myRentals', icon: CalendarRange },
   { href: '/account/profile', labelKey: 'myAccount', icon: User },
   { href: '/wallet',      labelKey: 'wallet',    icon: Wallet },
 ];
@@ -24,6 +25,7 @@ function activeKey(pathname: string): string {
   if (pathname.startsWith('/about'))        return '/about';
   if (pathname.startsWith('/for-rent') || pathname.startsWith('/transaction') || pathname.startsWith('/booking-confirmed'))
     return '/for-rent';
+  if (pathname.startsWith('/rentals'))      return '/rentals';
   if (pathname.startsWith('/list-camera'))  return '/home';
   if (pathname.startsWith('/home'))         return '/home';
   if (pathname.startsWith('/account'))      return '/account/profile';

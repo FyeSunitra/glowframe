@@ -5,6 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { translateText } from '@/lib/menuI18n';
+import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/appStore';
 
 interface FormDialogProps {
@@ -14,16 +15,23 @@ interface FormDialogProps {
   children: ReactNode;
   onSubmit: () => void;
   submitLabel?: string;
+  contentClassName?: string;
 }
 
 export function FormDialog({
-  open, onOpenChange, title, children, onSubmit, submitLabel = 'Save',
+  open,
+  onOpenChange,
+  title,
+  children,
+  onSubmit,
+  submitLabel = 'Save',
+  contentClassName,
 }: FormDialogProps) {
   const locale = useAppStore((s) => s.locale);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[520px]">
+      <DialogContent className={cn('max-w-[520px]', contentClassName)}>
         <DialogHeader>
           <DialogTitle className="text-[18px] font-bold text-gf-brown-900">
             {translateText(locale, title)}

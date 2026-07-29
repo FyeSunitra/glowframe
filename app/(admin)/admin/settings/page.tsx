@@ -2,10 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
@@ -41,9 +41,17 @@ const bookingSchema = z.object({
 })
 
 const paymentSchema = z.object({
-  platformBankName: z.string().min(1),
-  platformAccountName: z.string().min(1),
-  platformAccountNo: z.string().min(1),
+  accounts: z.array(z.object({
+    id: z.number().optional(),
+    bankId: z.number().min(1),
+    bankCode: z.string().optional(),
+    bankName: z.string().optional(),
+    bankAbbreviation: z.string().optional(),
+    accountName: z.string().min(1),
+    accountNumber: z.string().min(1),
+    active: z.boolean(),
+    sortOrder: z.number().optional(),
+  })).min(1),
   paymentReviewHours: z.number().min(1),
   payoutReviewDays: z.number().min(0),
   supportedBanks: z.string().min(1),
@@ -91,26 +99,12 @@ export default function SettingsPage() {
   const feesForm = useForm<FeesForm>({ resolver: zodResolver(feesSchema), values: settings?.fees })
   const bookingForm = useForm<BookingForm>({ resolver: zodResolver(bookingSchema), values: settings?.booking })
   const paymentForm = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema), values: settings?.payment })
+  const paymentAccounts = useFieldArray({
+    control: paymentForm.control,
+    name: 'accounts',
+    keyName: 'fieldKey',
+  })
   const addAdminForm = useForm<AddAdminForm>({ resolver: zodResolver(addAdminSchema) })
-  const selectedPlatformBank = useWatch({ control: paymentForm.control, name: 'platformBankName' })
-  const platformBankOptions = useMemo(() => {
-    const hasCurrent = selectedPlatformBank && banks.some((bank) => bank.name === selectedPlatformBank)
-
-    return hasCurrent || !selectedPlatformBank
-      ? banks
-      : [
-          {
-            id: 0,
-            code: selectedPlatformBank,
-            abbreviation: selectedPlatformBank,
-            name: selectedPlatformBank,
-            logoUrl: null,
-            usedInAccounts: 0,
-            active: true,
-          },
-          ...banks,
-        ]
-  }, [banks, selectedPlatformBank])
 
   const adminCols = useMemo(() => [
     {
@@ -210,30 +204,104 @@ export default function SettingsPage() {
         <div className={CARD_CLASS}>
           <div className={SECTION_TITLE_CLASS}>{t.paymentPayout}</div>
           <form onSubmit={paymentForm.handleSubmit((data) => saveMutation.mutate({ section: 'payment', data }))}>
-            <div className={FORM_GRID_CLASS}>
-              <Field label={t.platformBankName}>
-                <Select
-                  value={selectedPlatformBank ?? ''}
-                  onValueChange={(value) => paymentForm.setValue('platformBankName', value ?? '', { shouldDirty: true })}
+            <div className="mb-7">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-gf-brown-900">{t.receivingAccounts}</div>
+                  <div className="mt-1 text-[12.5px] text-gf-muted">{t.receivingAccountsHint}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => paymentAccounts.append({
+                    bankId: banks[0]?.id ?? 0,
+                    bankCode: banks[0]?.code,
+                    bankName: banks[0]?.name,
+                    bankAbbreviation: banks[0]?.abbreviation,
+                    accountName: '',
+                    accountNumber: '',
+                    active: true,
+                    sortOrder: paymentAccounts.fields.length,
+                  })}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t.platformBankName} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {platformBankOptions.map((bank) => (
-                      <SelectItem key={`${bank.id}-${bank.code}`} value={bank.name}>
-                        {bank.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={t.platformAccountName}>
-                <Input {...paymentForm.register('platformAccountName')} />
-              </Field>
-              <Field label={t.platformAccountNo}>
-                <Input {...paymentForm.register('platformAccountNo')} />
-              </Field>
+                  <Plus size={16} />
+                  {t.addPaymentAccount}
+                </Button>
+              </div>
+
+              <div className="divide-y divide-gf-line border-y border-gf-line">
+                {paymentAccounts.fields.map((field, index) => {
+                  const selectedBankId = paymentForm.watch(`accounts.${index}.bankId`)
+                  const selectedBank = banks.find((bank) => bank.id === selectedBankId)
+                  const isPromptPay = selectedBank?.code === 'PROMPTPAY'
+
+                  return (
+                    <div key={field.fieldKey} className="py-5">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-gf-brown-900">
+                          {t.paymentAccount} {index + 1}
+                        </div>
+                        <button
+                          type="button"
+                          title={t.removePaymentAccount}
+                          aria-label={t.removePaymentAccount}
+                          disabled={paymentAccounts.fields.length === 1}
+                          onClick={() => paymentAccounts.remove(index)}
+                          className="flex size-8 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-gf-red hover:bg-gf-pink-100 disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      <div className={FORM_GRID_CLASS}>
+                        <Field label={t.platformBankName}>
+                          <Select
+                            value={selectedBankId ? String(selectedBankId) : ''}
+                            onValueChange={(value) => {
+                              const bank = banks.find((item) => item.id === Number(value))
+                              paymentForm.setValue(`accounts.${index}.bankId`, Number(value), { shouldDirty: true })
+                              paymentForm.setValue(`accounts.${index}.bankCode`, bank?.code, { shouldDirty: true })
+                              paymentForm.setValue(`accounts.${index}.bankName`, bank?.name, { shouldDirty: true })
+                              paymentForm.setValue(`accounts.${index}.bankAbbreviation`, bank?.abbreviation, { shouldDirty: true })
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={t.platformBankName} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {banks.map((bank) => (
+                                <SelectItem key={bank.id} value={String(bank.id)}>
+                                  {bank.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field label={t.platformAccountName}>
+                          <Input {...paymentForm.register(`accounts.${index}.accountName`)} />
+                        </Field>
+                        <Field label={isPromptPay ? t.promptPayNumber : t.platformAccountNo}>
+                          <Input {...paymentForm.register(`accounts.${index}.accountNumber`)} />
+                        </Field>
+                      </div>
+
+                      {isPromptPay && (
+                        <div className="-mt-3 mb-4 text-[12px] text-gf-muted">{t.promptPayHint}</div>
+                      )}
+                      <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] text-gf-brown-800">
+                        <input
+                          type="checkbox"
+                          {...paymentForm.register(`accounts.${index}.active`)}
+                        />
+                        {t.activePaymentAccount}
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className={FORM_GRID_CLASS}>
               <Field label={t.paymentReviewHours}>
                 <Input type="number" {...paymentForm.register('paymentReviewHours', { valueAsNumber: true })} />
               </Field>

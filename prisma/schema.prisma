@@ -277,7 +277,8 @@ model Product {
   id              BigInt        @id @default(autoincrement())
   ownerId         BigInt        @map("owner_id")
   categoryId      BigInt        @map("category_id")
-  brandId         BigInt        @map("brand_id")
+  brandId         BigInt?       @map("brand_id")
+  customBrandName String?       @map("custom_brand_name") @db.VarChar(120)
   pickupAddressId BigInt        @map("pickup_address_id")
   title           String        @db.VarChar(160)
   model           String        @db.VarChar(160)
@@ -297,15 +298,16 @@ model Product {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  owner         User               @relation("ProductOwner", fields: [ownerId], references: [id])
-  category      CameraCategory     @relation(fields: [categoryId], references: [id])
-  brand         Brand              @relation(fields: [brandId], references: [id])
-  pickupAddress UserAddress        @relation(fields: [pickupAddressId], references: [id])
-  approver      User?              @relation("ProductApprover", fields: [approvedBy], references: [id])
-  media         ProductMedia[]
-  accessories   ProductAccessory[]
-  bookings      Booking[]
-  reviews       Review[]
+  owner             User                     @relation("ProductOwner", fields: [ownerId], references: [id])
+  category          CameraCategory           @relation(fields: [categoryId], references: [id])
+  brand             Brand?                   @relation(fields: [brandId], references: [id])
+  pickupAddress     UserAddress              @relation(fields: [pickupAddressId], references: [id])
+  approver          User?                    @relation("ProductApprover", fields: [approvedBy], references: [id])
+  media             ProductMedia[]
+  accessories       ProductAccessory[]
+  customAccessories ProductCustomAccessory[]
+  bookings          Booking[]
+  reviews           Review[]
 
   @@index([ownerId])
   @@index([categoryId])
@@ -340,6 +342,20 @@ model ProductAccessory {
 
   @@id([productId, accessoryId])
   @@map("product_accessories")
+}
+
+model ProductCustomAccessory {
+  id        BigInt @id @default(autoincrement())
+  productId BigInt @map("product_id")
+  name      String @db.VarChar(120)
+  quantity  Int    @default(1)
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, name])
+  @@index([productId])
+  @@map("product_custom_accessories")
 }
 
 model Booking {
@@ -389,28 +405,31 @@ model Booking {
 }
 
 model Payment {
-  id                 BigInt        @id @default(autoincrement())
-  bookingId          BigInt        @map("booking_id")
-  payerId            BigInt        @map("payer_id")
-  attemptNo          Int           @default(1) @map("attempt_no")
-  status             PaymentStatus @default(pendingReview)
-  proofStoragePath   String?       @map("proof_url")
-  proofFileName      String?       @map("proof_file_name") @db.VarChar(255)
-  submittedAmount    Decimal?      @map("submitted_amount") @db.Decimal(12, 2)
-  submittedAt        DateTime?     @map("submitted_at") @db.Timestamptz
-  reviewedBy         BigInt?       @map("reviewed_by")
-  reviewedAt         DateTime?     @map("reviewed_at") @db.Timestamptz
-  rejectionReason    String?       @map("rejection_reason")
-  platformHeldAmount Decimal       @default(0) @map("platform_held_amount") @db.Decimal(12, 2)
-  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                       BigInt        @id @default(autoincrement())
+  bookingId                BigInt        @map("booking_id")
+  payerId                  BigInt        @map("payer_id")
+  platformPaymentAccountId BigInt?       @map("platform_payment_account_id")
+  attemptNo                Int           @default(1) @map("attempt_no")
+  status                   PaymentStatus @default(pendingReview)
+  proofStoragePath         String?       @map("proof_url")
+  proofFileName            String?       @map("proof_file_name") @db.VarChar(255)
+  submittedAmount          Decimal?      @map("submitted_amount") @db.Decimal(12, 2)
+  submittedAt              DateTime?     @map("submitted_at") @db.Timestamptz
+  reviewedBy               BigInt?       @map("reviewed_by")
+  reviewedAt               DateTime?     @map("reviewed_at") @db.Timestamptz
+  rejectionReason          String?       @map("rejection_reason")
+  platformHeldAmount       Decimal       @default(0) @map("platform_held_amount") @db.Decimal(12, 2)
+  createdAt                DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  booking  Booking @relation(fields: [bookingId], references: [id])
-  payer    User    @relation("PaymentPayer", fields: [payerId], references: [id])
-  reviewer User?   @relation("PaymentReviewer", fields: [reviewedBy], references: [id])
+  booking                Booking                 @relation(fields: [bookingId], references: [id])
+  payer                  User                    @relation("PaymentPayer", fields: [payerId], references: [id])
+  reviewer               User?                   @relation("PaymentReviewer", fields: [reviewedBy], references: [id])
+  platformPaymentAccount PlatformPaymentAccount? @relation(fields: [platformPaymentAccountId], references: [id], onDelete: SetNull)
 
   @@unique([bookingId, attemptNo])
   @@index([bookingId])
+  @@index([platformPaymentAccountId])
   @@index([status])
   @@index([payerId])
   @@index([reviewedBy])
@@ -439,22 +458,29 @@ model Delivery {
 }
 
 model RentalReturn {
-  id                     BigInt       @id @default(autoincrement())
-  bookingId              BigInt       @unique @map("booking_id")
-  status                 ReturnStatus @default(pending)
-  returnTrackingNumber   String?      @map("return_tracking_number") @db.VarChar(120)
-  renterReturnedAt       DateTime?    @map("renter_returned_at") @db.Timestamptz
-  ownerReceivedAt        DateTime?    @map("owner_received_at") @db.Timestamptz
-  damageDescription      String?      @map("damage_description")
-  damageEvidenceUrl      String?      @map("damage_evidence_url")
-  damageEvidencePublicId String?      @map("damage_evidence_public_id")
-  damageAmount           Decimal      @default(0) @map("damage_amount") @db.Decimal(12, 2)
-  renterDisputeReason    String?      @map("renter_dispute_reason")
-  adminDecision          String?      @map("admin_decision")
-  reviewedBy             BigInt?      @map("reviewed_by")
-  reviewedAt             DateTime?    @map("reviewed_at") @db.Timestamptz
-  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  id                     BigInt          @id @default(autoincrement())
+  bookingId              BigInt          @unique @map("booking_id")
+  status                 ReturnStatus    @default(pending)
+  returnMethod           DeliveryMethod? @map("return_method")
+  returnProviderName     String?         @map("return_provider_name") @db.VarChar(120)
+  returnTrackingNumber   String?         @map("return_tracking_number") @db.VarChar(120)
+  returnNote             String?         @map("return_note")
+  returnEvidenceUrl      String?         @map("return_evidence_url")
+  returnEvidencePublicId String?         @map("return_evidence_public_id")
+  renterReturnedAt       DateTime?       @map("renter_returned_at") @db.Timestamptz
+  ownerReceivedAt        DateTime?       @map("owner_received_at") @db.Timestamptz
+  damageDescription      String?         @map("damage_description")
+  damageEvidenceUrl      String?         @map("damage_evidence_url")
+  damageEvidencePublicId String?         @map("damage_evidence_public_id")
+  damageAmount           Decimal         @default(0) @map("damage_amount") @db.Decimal(12, 2)
+  approvedDamageAmount   Decimal?        @map("approved_damage_amount") @db.Decimal(12, 2)
+  renterDisputeReason    String?         @map("renter_dispute_reason")
+  adminDecision          String?         @map("admin_decision")
+  adminDecisionNote      String?         @map("admin_decision_note")
+  reviewedBy             BigInt?         @map("reviewed_by")
+  reviewedAt             DateTime?       @map("reviewed_at") @db.Timestamptz
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   booking  Booking @relation(fields: [bookingId], references: [id])
   reviewer User?   @relation("RentalReturnReviewer", fields: [reviewedBy], references: [id])
@@ -530,8 +556,9 @@ model Bank {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  bankAccounts     BankAccount[]
-  platformSettings PlatformSetting[]
+  bankAccounts            BankAccount[]
+  platformSettings        PlatformSetting[]
+  platformPaymentAccounts PlatformPaymentAccount[]
 
   @@index([name])
   @@index([isActive])
@@ -556,10 +583,31 @@ model PlatformSetting {
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  platformBank Bank? @relation(fields: [platformBankId], references: [id], onDelete: SetNull)
+  platformBank    Bank?                    @relation(fields: [platformBankId], references: [id], onDelete: SetNull)
+  paymentAccounts PlatformPaymentAccount[]
 
   @@index([platformBankId])
   @@map("platform_settings")
+}
+
+model PlatformPaymentAccount {
+  id            BigInt   @id @default(autoincrement())
+  settingId     Int      @map("setting_id")
+  bankId        BigInt   @map("bank_id")
+  accountName   String   @map("account_name") @db.VarChar(160)
+  accountNumber String   @map("account_number") @db.VarChar(80)
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  setting  PlatformSetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+  bank     Bank            @relation(fields: [bankId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([settingId, isActive, sortOrder])
+  @@index([bankId])
+  @@map("platform_payment_accounts")
 }
 
 model Withdrawal {
@@ -624,10 +672,11 @@ model Notification {
 model PolicyDocument {
   id             BigInt               @id @default(autoincrement())
   type           PolicyDocumentType
-  title          String               @db.VarChar(160)
+  titleTh        String               @map("title_th") @db.VarChar(160)
+  titleEn        String               @map("title_en") @db.VarChar(160)
   version        String               @db.VarChar(40)
-  summary        String?
-  body           String
+  bodyTh         String               @map("body_th")
+  bodyEn         String               @map("body_en")
   isRequired     Boolean              @default(true) @map("is_required")
   status         PolicyDocumentStatus @default(draft)
   forceReconsent Boolean              @default(false) @map("force_reconsent")

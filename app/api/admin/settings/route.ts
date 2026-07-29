@@ -30,7 +30,13 @@ function requiredString(value: unknown, field: string) {
 async function ensurePlatformSetting() {
   const existing = await prisma.platformSetting.findUnique({
     where: { id: SETTINGS_ID },
-    include: { platformBank: true },
+    include: {
+      platformBank: true,
+      paymentAccounts: {
+        include: { bank: true },
+        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+      },
+    },
   })
 
   if (existing) return existing
@@ -53,7 +59,13 @@ async function ensurePlatformSetting() {
       platformBankId: platformBank?.id,
       supportedBanks: banks.map((bank) => bank.name).join(', '),
     },
-    include: { platformBank: true },
+    include: {
+      platformBank: true,
+      paymentAccounts: {
+        include: { bank: true },
+        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+      },
+    },
   })
 }
 
@@ -85,9 +97,17 @@ async function getSettingsData() {
       cancellationWindowHours: settings.cancellationWindowHours,
     },
     payment: {
-      platformBankName: settings.platformBank?.name ?? '',
-      platformAccountName: settings.platformAccountName,
-      platformAccountNo: settings.platformAccountNo,
+      accounts: settings.paymentAccounts.map((account) => ({
+        id: Number(account.id),
+        bankId: Number(account.bankId),
+        bankCode: account.bank.code,
+        bankName: account.bank.name,
+        bankAbbreviation: account.bank.abbreviation,
+        accountName: account.accountName,
+        accountNumber: account.accountNumber,
+        active: account.isActive,
+        sortOrder: account.sortOrder,
+      })),
       paymentReviewHours: settings.paymentReviewHours,
       payoutReviewDays: settings.payoutReviewDays,
       supportedBanks: settings.supportedBanks,
@@ -139,23 +159,62 @@ export async function PATCH(req: NextRequest) {
         },
       })
     } else if (body.section === 'payment') {
-      const platformBankName = requiredString(data.platformBankName, 'platformBankName')
-      const platformBank = await prisma.bank.findFirst({
-        where: { name: { equals: platformBankName, mode: 'insensitive' } },
+      if (!Array.isArray(data.accounts) || data.accounts.length === 0) {
+        return errorResponse('At least one platform payment account is required')
+      }
+
+      const accounts = data.accounts.map((value, index) => {
+        if (!value || typeof value !== 'object') {
+          throw new Error(`accounts.${index} is invalid`)
+        }
+        const account = value as Record<string, unknown>
+        return {
+          bankId: BigInt(finiteInteger(account.bankId, `accounts.${index}.bankId`, 1)),
+          accountName: requiredString(account.accountName, `accounts.${index}.accountName`),
+          accountNumber: requiredString(account.accountNumber, `accounts.${index}.accountNumber`),
+          isActive: account.active !== false,
+          sortOrder: index,
+        }
       })
 
-      if (!platformBank) return errorResponse('Platform bank was not found')
+      if (!accounts.some((account) => account.isActive)) {
+        return errorResponse('At least one active platform payment account is required')
+      }
 
-      await prisma.platformSetting.update({
-        where: { id: (await ensurePlatformSetting()).id },
-        data: {
-          platformBankId: platformBank.id,
-          platformAccountName: requiredString(data.platformAccountName, 'platformAccountName'),
-          platformAccountNo: requiredString(data.platformAccountNo, 'platformAccountNo'),
+      const bankIds = [...new Set(accounts.map((account) => account.bankId.toString()))]
+        .map((id) => BigInt(id))
+      const validBanks = await prisma.bank.findMany({
+        where: { id: { in: bankIds }, isActive: true },
+        select: { id: true },
+      })
+      if (validBanks.length !== bankIds.length) {
+        return errorResponse('One or more payment banks were not found')
+      }
+
+      const settings = await ensurePlatformSetting()
+      const primaryAccount = accounts.find((account) => account.isActive) ?? accounts[0]
+
+      await prisma.$transaction(async (transaction) => {
+        await transaction.platformPaymentAccount.deleteMany({
+          where: { settingId: settings.id },
+        })
+        await transaction.platformPaymentAccount.createMany({
+          data: accounts.map((account) => ({
+            settingId: settings.id,
+            ...account,
+          })),
+        })
+        await transaction.platformSetting.update({
+          where: { id: settings.id },
+          data: {
+            platformBankId: primaryAccount.bankId,
+            platformAccountName: primaryAccount.accountName,
+            platformAccountNo: primaryAccount.accountNumber,
           paymentReviewHours: finiteInteger(data.paymentReviewHours, 'paymentReviewHours', 1),
           payoutReviewDays: finiteInteger(data.payoutReviewDays, 'payoutReviewDays', 1),
           supportedBanks: requiredString(data.supportedBanks, 'supportedBanks'),
-        },
+          },
+        })
       })
     } else if (body.section === 'addAdmin') {
       const email = requiredString(data.email, 'email').toLowerCase()
