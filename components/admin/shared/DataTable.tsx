@@ -7,6 +7,7 @@ import {
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { translateText } from '@/lib/menuI18n';
 import { useAppStore } from '@/store/appStore';
+import { cn } from '@/lib/utils';
 
 interface Column<T extends object> {
   key: string;
@@ -19,9 +20,16 @@ interface DataTableProps<T extends object> {
   data: T[];
   loading?: boolean;
   empty?: ReactNode;
+  onRowClick?: (row: T) => void;
 }
 
-export function DataTable<T extends object>({ columns, data, loading, empty }: DataTableProps<T>) {
+export function DataTable<T extends object>({
+  columns,
+  data,
+  loading,
+  empty,
+  onRowClick,
+}: DataTableProps<T>) {
   const locale = useAppStore((s) => s.locale);
 
   if (loading) {
@@ -52,7 +60,12 @@ export function DataTable<T extends object>({ columns, data, loading, empty }: D
           </TableRow>
         ) : (
           data.map((row, i) => (
-            <HoverRow key={String('id' in row ? row.id : i)} columns={columns} row={row} />
+            <HoverRow
+              key={String('id' in row ? row.id : i)}
+              columns={columns}
+              row={row}
+              onClick={onRowClick}
+            />
           ))
         )}
       </TableBody>
@@ -61,10 +74,28 @@ export function DataTable<T extends object>({ columns, data, loading, empty }: D
   );
 }
 
-function HoverRow<T extends object>({ columns, row }: { columns: Column<T>[]; row: T }) {
+function HoverRow<T extends object>({
+  columns,
+  row,
+  onClick,
+}: {
+  columns: Column<T>[]
+  row: T
+  onClick?: (row: T) => void
+}) {
   return (
     <TableRow
-      className="cursor-pointer [transition:background_.12s]"
+      tabIndex={onClick ? 0 : undefined}
+      className={cn(
+        '[transition:background_.12s]',
+        onClick && 'cursor-pointer focus-visible:bg-gf-pink-100 focus-visible:outline-none',
+      )}
+      onClick={() => onClick?.(row)}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        onClick(row)
+      }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--gf-pink-100)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = '')}
     >

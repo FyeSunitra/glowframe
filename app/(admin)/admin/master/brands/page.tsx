@@ -11,6 +11,7 @@ import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
+import { Pagination } from '@/components/common/Pagination'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -19,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
 import { unwrapApiResponse } from '@/lib/api'
 import { masterDataService } from '@/services/masterData'
-import type { Brand } from '@/types/masterData'
+import type { Brand, MasterListResult } from '@/types/masterData'
 import { cn } from '@/lib/utils'
 import { getPageText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
@@ -36,11 +37,15 @@ export default function BrandsPage() {
   const [editTarget, setEditTarget] = useState<Brand | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Brand | null>(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
-  const { data: brands = [], isLoading } = useQuery<Brand[]>({
-    queryKey: ['admin', 'master', 'brands'],
-    queryFn: async () => unwrapApiResponse(await masterDataService.brands.list()).items,
+  const { data: brandResult, isLoading } = useQuery<MasterListResult<Brand>>({
+    queryKey: ['admin', 'master', 'brands', page, limit],
+    queryFn: async () =>
+      unwrapApiResponse(await masterDataService.brands.list({ page, limit })),
   })
+  const brands = brandResult?.items ?? []
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'master', 'brands'] })
 
@@ -62,7 +67,11 @@ export default function BrandsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => masterDataService.brands.delete(id).then(unwrapApiResponse),
-    onSuccess: () => { invalidate(); showToast(t.deleted) },
+    onSuccess: () => {
+      if (brands.length === 1 && page > 1) setPage((current) => current - 1)
+      invalidate()
+      showToast(t.deleted)
+    },
   })
 
   const form = useForm<BrandForm>({ resolver: zodResolver(brandSchema) })
@@ -144,6 +153,17 @@ export default function BrandsPage() {
             sub={t.emptySub}
           />
         }
+      />
+      <Pagination
+        page={page}
+        limit={limit}
+        total={brandResult?.meta.total ?? 0}
+        totalPages={brandResult?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+        onLimitChange={(nextLimit) => {
+          setLimit(nextLimit)
+          setPage(1)
+        }}
       />
 
       <FormDialog

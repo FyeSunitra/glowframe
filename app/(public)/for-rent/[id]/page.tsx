@@ -5,10 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import {
   BadgeCheck,
   Camera,
+  Expand,
   MapPin,
   PackageCheck,
   Play,
@@ -17,15 +17,12 @@ import {
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { CameraGlyph } from '@/components/common/CameraGlyph';
-import type { Product } from '@/types';
+import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox';
+import { unwrapApiResponse } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { getPageText } from '@/lib/menuI18n';
+import { productService } from '@/services/products';
 import { useAppStore } from '@/store/appStore';
-
-async function fetchProduct(id: string): Promise<Product> {
-  const { data } = await axios.get(`/api/products/${id}`);
-  return data.data;
-}
 
 export default function ProductDetailPage() {
   const locale = useAppStore((state) => state.locale);
@@ -33,6 +30,7 @@ export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<'detail' | 'policy'>('detail');
   const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const {
     data: product,
@@ -40,7 +38,7 @@ export default function ProductDetailPage() {
     isError,
   } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => fetchProduct(id),
+    queryFn: async () => unwrapApiResponse(await productService.get(id)),
     enabled: Boolean(id),
   });
 
@@ -68,21 +66,45 @@ export default function ProductDetailPage() {
         <div className="min-w-0">
           <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-gf-pink-100">
             {selectedMedia?.mediaType === 'image' ? (
-              <Image
-                src={selectedMedia.url}
-                alt={`${t.image}: ${product.name}`}
-                fill
-                priority
-                unoptimized
-                className="object-cover"
-              />
+              <button
+                type="button"
+                onClick={() =>
+                  setPreviewIndex(
+                    Math.max(0, media.findIndex((item) => item.id === selectedMedia.id)),
+                  )
+                }
+                className="absolute inset-0 cursor-zoom-in border-0 bg-transparent p-0"
+              >
+                <Image
+                  src={selectedMedia.url}
+                  alt={`${t.image}: ${product.name}`}
+                  fill
+                  priority
+                  unoptimized
+                  className="object-cover"
+                />
+              </button>
             ) : selectedMedia?.mediaType === 'video' ? (
-              <video
-                src={selectedMedia.url}
-                controls
-                className="h-full w-full bg-black object-contain"
-                aria-label={`${t.video}: ${product.name}`}
-              />
+              <>
+                <video
+                  src={selectedMedia.url}
+                  controls
+                  className="h-full w-full bg-black object-contain"
+                  aria-label={`${t.video}: ${product.name}`}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewIndex(
+                      Math.max(0, media.findIndex((item) => item.id === selectedMedia.id)),
+                    )
+                  }
+                  className="absolute right-3 top-3 flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-black/65 text-white"
+                  aria-label={t.productMedia}
+                >
+                  <Expand size={18} />
+                </button>
+              </>
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-gf-muted">
                 <CameraGlyph color={product.color} size={150} />
@@ -103,7 +125,10 @@ export default function ProductDetailPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setSelectedMediaId(item.id)}
+                  onClick={() => {
+                    setSelectedMediaId(item.id)
+                    setPreviewIndex(index)
+                  }}
                   className={cn(
                     'relative aspect-square overflow-hidden rounded-lg border-2 bg-gf-pink-50',
                     selectedMedia?.id === item.id
@@ -292,6 +317,13 @@ export default function ProductDetailPage() {
           )}
         </div>
       </section>
+      <ProductMediaLightbox
+        media={media}
+        productName={product.name}
+        initialIndex={previewIndex}
+        onIndexChange={setPreviewIndex}
+        onOpenChange={(open) => { if (!open) setPreviewIndex(null) }}
+      />
     </div>
   );
 }

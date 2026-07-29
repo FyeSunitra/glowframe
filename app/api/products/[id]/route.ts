@@ -1,34 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_PRODUCTS } from '../route';
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const product = MOCK_PRODUCTS.find((p) => p.id === Number(id));
-  if (!product || (product.status !== 'approved' && product.status !== 'active')) {
-    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+import { ProductStatus } from '@/lib/generated/prisma/client'
+import { prisma } from '@/lib/prisma'
+import { publicProductInclude, serializeProduct } from '../_utils'
+
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
+export async function GET(_req: NextRequest, context: RouteContext) {
+  const { id } = await context.params
+  if (!/^\d+$/.test(id)) {
+    return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
   }
-  // TODO: replace with Prisma — prisma.product.findUnique({ where: { id } })
-  return NextResponse.json({ data: product });
-}
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const body = await req.json();
-  // TODO: Prisma update
-  return NextResponse.json({ data: { id: Number(id), ...body } });
-}
+  try {
+    const product = await prisma.product.findFirst({
+      where: {
+        id: BigInt(id),
+        status: ProductStatus.approved,
+      },
+      include: publicProductInclude,
+    })
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  // TODO: Prisma delete
-  return NextResponse.json({ message: `Product ${id} deleted` });
+    if (!product) {
+      return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+    }
+
+    return NextResponse.json({ data: serializeProduct(product) })
+  } catch (error) {
+    console.error('Failed to load product', error)
+    return NextResponse.json({ error: 'Unable to load product.' }, { status: 500 })
+  }
 }

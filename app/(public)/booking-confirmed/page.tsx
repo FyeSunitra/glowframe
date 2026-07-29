@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { CheckCircle2, Clock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/utils';
+import { unwrapApiResponse } from '@/lib/api';
 import type { Product } from '@/types';
 import { getPageText } from '@/lib/menuI18n';
+import { productService } from '@/services/products';
 
 export default function BookingConfirmedPage() {
   const booking = useAppStore((s) => s.booking);
@@ -17,7 +18,8 @@ export default function BookingConfirmedPage() {
 
   const { data: product } = useQuery<Product>({
     queryKey: ['product', booking.productId],
-    queryFn: async () => (await axios.get(`/api/products/${booking.productId}`)).data.data,
+    queryFn: async () =>
+      unwrapApiResponse(await productService.get(booking.productId!)),
     enabled: !!booking.productId,
   });
 
@@ -63,8 +65,11 @@ export default function BookingConfirmedPage() {
         <p className="font-[var(--font-caveat)] text-[24px] text-gf-brown-800">
           {t.thankYou}
         </p>
-        <div className="[margin-top:20px]">
-          <Link href="/for-rent" className="inline-block bg-gf-brown-800 text-gf-pink-100 border-0 rounded-full [padding:13px_26px] font-semibold text-[15px] no-underline">
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <Link href="/rentals" className="inline-block rounded-full border-0 bg-gf-brown-800 px-[26px] py-[13px] text-[15px] font-semibold text-gf-pink-100 no-underline">
+            {t.viewMyRentals}
+          </Link>
+          <Link href="/for-rent" className="inline-block rounded-full border border-gf-brown-300 bg-transparent px-[26px] py-[13px] text-[15px] font-semibold text-gf-brown-800 no-underline">
             {t.backToProducts}
           </Link>
         </div>

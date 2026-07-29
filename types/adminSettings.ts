@@ -11,10 +11,20 @@ export interface BookingSettings {
   cancellationWindowHours: number
 }
 
+export interface PlatformPaymentAccount {
+  id?: number
+  bankId: number
+  bankCode?: string
+  bankName?: string
+  bankAbbreviation?: string
+  accountName: string
+  accountNumber: string
+  active: boolean
+  sortOrder?: number
+}
+
 export interface PaymentSettings {
-  platformBankName: string
-  platformAccountName: string
-  platformAccountNo: string
+  accounts: PlatformPaymentAccount[]
   paymentReviewHours: number
   payoutReviewDays: number
   supportedBanks: string

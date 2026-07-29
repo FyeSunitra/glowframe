@@ -19,6 +19,10 @@ function listParams(params?: MasterListParams) {
 }
 
 function toListResult<T>(body: ApiListBody<T, MasterListMeta>): MasterListResult<T> {
+  if (!body.meta) {
+    throw new Error('Pagination metadata is missing from the master data response.')
+  }
+
   return {
     items: body.data,
     meta: body.meta,

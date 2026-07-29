@@ -11,6 +11,7 @@ import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog'
+import { Pagination } from '@/components/common/Pagination'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -19,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
 import { unwrapApiResponse } from '@/lib/api'
 import { masterDataService } from '@/services/masterData'
-import type { Accessory } from '@/types/masterData'
+import type { Accessory, MasterListResult } from '@/types/masterData'
 import { cn } from '@/lib/utils'
 import { getPageText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
@@ -36,11 +37,15 @@ export default function AccessoriesPage() {
   const [editTarget, setEditTarget] = useState<Accessory | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Accessory | null>(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
-  const { data: accessories = [], isLoading } = useQuery<Accessory[]>({
-    queryKey: ['admin', 'master', 'accessories'],
-    queryFn: async () => unwrapApiResponse(await masterDataService.accessories.list()).items,
+  const { data: accessoryResult, isLoading } = useQuery<MasterListResult<Accessory>>({
+    queryKey: ['admin', 'master', 'accessories', page, limit],
+    queryFn: async () =>
+      unwrapApiResponse(await masterDataService.accessories.list({ page, limit })),
   })
+  const accessories = accessoryResult?.items ?? []
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'master', 'accessories'] })
 
@@ -62,7 +67,11 @@ export default function AccessoriesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => masterDataService.accessories.delete(id).then(unwrapApiResponse),
-    onSuccess: () => { invalidate(); showToast(t.deleted) },
+    onSuccess: () => {
+      if (accessories.length === 1 && page > 1) setPage((current) => current - 1)
+      invalidate()
+      showToast(t.deleted)
+    },
   })
 
   const form = useForm<AccForm>({ resolver: zodResolver(accSchema) })
@@ -143,6 +152,17 @@ export default function AccessoriesPage() {
             sub={t.emptySub}
           />
         }
+      />
+      <Pagination
+        page={page}
+        limit={limit}
+        total={accessoryResult?.meta.total ?? 0}
+        totalPages={accessoryResult?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+        onLimitChange={(nextLimit) => {
+          setLimit(nextLimit)
+          setPage(1)
+        }}
       />
 
       <FormDialog

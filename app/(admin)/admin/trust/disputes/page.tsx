@@ -1,134 +1,530 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { AlertTriangle, MoreHorizontal } from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, Camera, MoreHorizontal } from 'lucide-react'
+
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
-import { FilterBar } from '@/components/admin/shared/FilterBar'
 import { DataTable } from '@/components/admin/shared/DataTable'
-import { StatusBadge } from '@/components/admin/shared/StatusBadge'
-import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
+import { EmptyState } from '@/components/admin/shared/EmptyState'
+import { FilterBar } from '@/components/admin/shared/FilterBar'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
-import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
-import { PillTabs } from '@/components/admin/shared/PillTabs'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { StatusBadge } from '@/components/admin/shared/StatusBadge'
+import { Pagination } from '@/components/common/Pagination'
+import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { money } from '@/lib/utils'
-import { useMenuI18n } from '@/hooks/useMenuI18n'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/useToast'
+import { unwrapApiResponse } from '@/lib/api'
+import { getPageText } from '@/lib/menuI18n'
+import { cn, money } from '@/lib/utils'
+import { adminDisputeService } from '@/services/adminDisputes'
+import { useAppStore } from '@/store/appStore'
+import type {
+  AdminDispute,
+  DamageDecision,
+  ResolveDamagePayload,
+} from '@/types/adminDispute'
 
-interface Dispute { id: number; disputeId: string; bookingNo: string; openedBy: string; type: string; claimAmount: number; opened: string; status: string }
-
-const TYPE_OPTIONS = [{ value: '', label: 'All types' }, { value: 'damage', label: 'Damage' }, { value: 'late-return', label: 'Late return' }, { value: 'no-show', label: 'No-show' }, { value: 'mismatch', label: 'Mismatch' }, { value: 'other', label: 'Other' }]
-const TABS = ['Pending', 'In Review', 'Resolved']
-
-const rulingSchema = z.object({ notes: z.string().min(1), amount: z.number().min(0) })
-type RulingForm = z.infer<typeof rulingSchema>
+type ClaimStatus = 'pending' | 'resolved'
 
 export default function DisputesPage() {
-  const { tr } = useMenuI18n()
+  const locale = useAppStore((state) => state.locale)
+  const t = getPageText(locale, 'adminDisputes')
   const { showToast } = useToast()
-  const qc = useQueryClient()
-  const [activeTab, setActiveTab] = useState('Pending')
+  const queryClient = useQueryClient()
+  const [status, setStatus] = useState<ClaimStatus>('pending')
   const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [selected, setSelected] = useState<Dispute | null>(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [selected, setSelected] = useState<AdminDispute | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [renterRulingOpen, setRenterRulingOpen] = useState(false)
-  const [ownerRulingOpen, setOwnerRulingOpen] = useState(false)
-  const [closeOpen, setCloseOpen] = useState(false)
+  const [resolveOpen, setResolveOpen] = useState(false)
+  const [decision, setDecision] = useState<DamageDecision>('no_damage')
+  const [approvedAmount, setApprovedAmount] = useState('')
+  const [decisionNote, setDecisionNote] = useState('')
+  const [evidenceIndex, setEvidenceIndex] = useState<number | null>(null)
 
-  const tab = activeTab === 'In Review' ? 'in-review' : activeTab === 'Resolved' ? 'resolved' : 'pending'
-  const filters = { search, type: typeFilter, tab }
-  const { data: disputes = [], isLoading } = useQuery<Dispute[]>({
-    queryKey: ['admin', 'trust', 'disputes', filters],
-    queryFn: () => axios.get('/api/admin/trust/disputes', { params: filters }).then(r => r.data.data),
+  const filters = { status, search, page, limit }
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['admin', 'damage-claims', filters],
+    queryFn: () =>
+      adminDisputeService.list(filters).then(unwrapApiResponse),
   })
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'trust', 'disputes'] })
-  const assignMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'assign' }), onSuccess: () => { invalidate(); showToast(tr('Assigned to you')) } })
-  const closeMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/trust/disputes/${id}`, { action: 'close' }), onSuccess: () => { invalidate(); showToast(tr('Dispute closed')) } })
-  const renterForm = useForm<RulingForm>({ resolver: zodResolver(rulingSchema), defaultValues: { amount: 0 } })
-  const ownerForm = useForm<RulingForm>({ resolver: zodResolver(rulingSchema), defaultValues: { amount: 0 } })
 
-  const COLUMNS = [
-    { key: 'disputeId', header: 'Dispute ID', render: (r: Dispute) => <span className="font-[var(--font-poppins)] font-semibold text-[13px]">{r.disputeId}</span> },
-    { key: 'bookingNo', header: 'Booking #', render: (r: Dispute) => r.bookingNo },
-    { key: 'openedBy', header: 'Opened by', render: (r: Dispute) => <StatusBadge status={r.openedBy === 'renter' ? 'active' : 'pending'} /> },
-    { key: 'type', header: 'Type', render: (r: Dispute) => <span className="[text-transform:capitalize]">{r.type.replace('-', ' ')}</span> },
-    { key: 'claimAmount', header: 'Claim amount', render: (r: Dispute) => `${money(r.claimAmount)} THB` },
-    { key: 'opened', header: 'Opened', render: (r: Dispute) => <span className="text-[12.5px] text-gf-muted">{r.opened}</span> },
-    { key: 'status', header: 'Status', render: (r: Dispute) => <StatusBadge status={r.status} /> },
-    { key: 'actions', header: '', render: (r: Dispute) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}>
-          <MoreHorizontal size={16} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => assignMutation.mutate(r.id)}>{tr('Assign to me')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); renterForm.reset({ amount: 0 }); setRenterRulingOpen(true) }}>{tr('Rule for renter')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); ownerForm.reset({ amount: 0 }); setOwnerRulingOpen(true) }}>{tr('Rule for owner')}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setSelected(r); setCloseOpen(true) }}>{tr('Close without action')}</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )},
+  const resolveMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: ResolveDamagePayload
+    }) => adminDisputeService.resolve(id, payload).then(unwrapApiResponse),
+    onSuccess: (updated) => {
+      setSelected(updated)
+      setResolveOpen(false)
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'damage-claims'],
+      })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'bookings'] })
+      showToast(t.success)
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : t.failed)
+    },
+  })
+
+  const rows = data?.items ?? []
+  const dateFormatter = new Intl.DateTimeFormat(
+    locale === 'th' ? 'th-TH' : 'en-GB',
+    { dateStyle: 'medium', timeStyle: 'short' },
+  )
+  const evidence = selected
+    ? [
+        {
+          id: 'delivery',
+          label: t.deliveryEvidence,
+          url: selected.deliveryEvidenceUrl,
+        },
+        {
+          id: 'return',
+          label: t.returnEvidence,
+          url: selected.returnEvidenceUrl,
+        },
+        {
+          id: 'damage',
+          label: t.damageEvidence,
+          url: selected.damageEvidenceUrl,
+        },
+      ].flatMap((item) =>
+        item.url ? [{ ...item, url: item.url }] : [],
+      )
+    : []
+
+  function selectClaim(row: AdminDispute) {
+    setSelected(row)
+    setDrawerOpen(true)
+  }
+
+  function openResolution(row: AdminDispute) {
+    setSelected(row)
+    setDecision('no_damage')
+    setApprovedAmount('')
+    setDecisionNote('')
+    setResolveOpen(true)
+  }
+
+  function submitResolution() {
+    if (!selected || !decisionNote.trim()) {
+      showToast(t.required)
+      return
+    }
+    const amount = Number(approvedAmount)
+    const maximum = Math.min(selected.claimedAmount, selected.deposit)
+    if (
+      decision === 'partial_damage' &&
+      (!Number.isFinite(amount) || amount <= 0 || amount >= maximum)
+    ) {
+      showToast(t.required)
+      return
+    }
+
+    resolveMutation.mutate({
+      id: selected.id,
+      payload: {
+        decision,
+        approvedAmount:
+          decision === 'partial_damage' ? amount : undefined,
+        note: decisionNote.trim(),
+      },
+    })
+  }
+
+  const columns = [
+    {
+      key: 'bookingNo',
+      header: t.bookingNo,
+      render: (row: AdminDispute) => (
+        <span className="font-[var(--font-poppins)] text-[13px] font-semibold">
+          {row.bookingNo}
+        </span>
+      ),
+    },
+    {
+      key: 'product',
+      header: t.product,
+      render: (row: AdminDispute) => (
+        <span className="flex min-w-[180px] items-center gap-2.5">
+          <span className="relative size-10 shrink-0 overflow-hidden rounded-[6px] bg-gf-pink-100">
+            {row.product.imageUrl ? (
+              <Image
+                src={row.product.imageUrl}
+                alt={row.product.name}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              <Camera
+                className="absolute inset-0 m-auto text-gf-brown-300"
+                size={18}
+              />
+            )}
+          </span>
+          <span className="text-[13px]">{row.product.name}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'owner',
+      header: t.owner,
+      render: (row: AdminDispute) => row.owner.displayName,
+    },
+    {
+      key: 'renter',
+      header: t.renter,
+      render: (row: AdminDispute) => row.renter.displayName,
+    },
+    {
+      key: 'claimedAmount',
+      header: t.claimAmount,
+      render: (row: AdminDispute) => `${money(row.claimedAmount)} THB`,
+    },
+    {
+      key: 'status',
+      header: t.status,
+      render: (row: AdminDispute) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (row: AdminDispute) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t.view}
+            onClick={(event) => event.stopPropagation()}
+            className="cursor-pointer rounded-[8px] border-0 bg-transparent p-2 text-gf-brown-700"
+          >
+            <MoreHorizontal size={16} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end">
+            <DropdownMenuItem onClick={() => selectClaim(row)}>
+              {t.view}
+            </DropdownMenuItem>
+            {row.status === 'pending' && (
+              <DropdownMenuItem onClick={() => openResolution(row)}>
+                {t.resolve}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ]
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Trust & Safety', 'Disputes']} title="Disputes & Claims" />
-      <PillTabs items={TABS} value={activeTab} onChange={setActiveTab} />
-      <FilterBar
-        search={{ placeholder: 'Search dispute or booking…', value: search, onChange: setSearch }}
-        selects={[{ label: 'Type', value: typeFilter, onChange: setTypeFilter, options: TYPE_OPTIONS }]}
-      />
-      <DataTable columns={COLUMNS} data={disputes} loading={isLoading} empty={<EmptyState icon={AlertTriangle} heading="No open disputes" sub="Disputes appear here when users raise claims." />} />
+      <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
 
-      <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selected ? `Dispute ${selected.disputeId}` : ''} subtitle={selected?.type}
-        footer={
-          <button className="w-full bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => { setDrawerOpen(false); renterForm.reset({ amount: 0 }); setRenterRulingOpen(true) }}>
-            Submit Ruling
+      <div className="mb-5 flex w-fit rounded-full bg-gf-pink-100 p-1.5">
+        {(['pending', 'resolved'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setStatus(value)
+              setPage(1)
+            }}
+            className={cn(
+              'cursor-pointer rounded-full border-0 px-5 py-2.5 text-sm font-semibold',
+              status === value
+                ? 'bg-gf-pink-500 text-gf-brown-900'
+                : 'bg-transparent text-gf-brown-700',
+            )}
+          >
+            {value === 'pending' ? t.pending : t.resolved}
           </button>
+        ))}
+      </div>
+
+      <FilterBar
+        search={{
+          placeholder: t.search,
+          value: search,
+          onChange: (value) => {
+            setSearch(value)
+            setPage(1)
+          },
+        }}
+      />
+
+      {isError ? (
+        <EmptyState
+          icon={AlertTriangle}
+          heading={t.loadFailed}
+          sub={t.noClaimsSub}
+        />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            loading={isLoading}
+            onRowClick={selectClaim}
+            empty={
+              <EmptyState
+                icon={AlertTriangle}
+                heading={t.noClaims}
+                sub={t.noClaimsSub}
+              />
+            }
+          />
+          {data && data.meta.total > 0 && (
+            <Pagination
+              {...data.meta}
+              onPageChange={setPage}
+              onLimitChange={(value) => {
+                setLimit(value)
+                setPage(1)
+              }}
+            />
+          )}
+        </>
+      )}
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selected ? `${t.bookingNo} ${selected.bookingNo}` : ''}
+        subtitle={selected?.status}
+        footer={
+          selected?.status === 'pending' ? (
+            <button
+              type="button"
+              onClick={() => openResolution(selected)}
+              className="w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-5 py-3 text-sm font-semibold text-gf-brown-900"
+            >
+              {t.resolve}
+            </button>
+          ) : undefined
         }
       >
         {selected && (
-          <div>
-            {[
-              { label: 'Booking #', value: selected.bookingNo },
-              { label: 'Opened by', value: selected.openedBy },
-              { label: 'Type', value: selected.type },
-              { label: 'Claim amount', value: `${money(selected.claimAmount)} THB` },
-              { label: 'Opened', value: selected.opened },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{tr(r.label)}</span>
-                <span className="font-medium [text-transform:capitalize]">{r.value}</span>
-              </div>
-            ))}
+          <div className="space-y-6">
+            <section>
+              <SectionTitle>{t.claimDetails}</SectionTitle>
+              <DetailRow label={t.product} value={selected.product.name} />
+              <DetailRow label={t.owner} value={`${selected.owner.displayName} (${selected.owner.email})`} />
+              <DetailRow label={t.renter} value={`${selected.renter.displayName} (${selected.renter.email})`} />
+              <DetailRow label={t.rentalFee} value={`${money(selected.rentalFee)} THB`} />
+              <DetailRow label={t.deposit} value={`${money(selected.deposit)} THB`} />
+              <DetailRow label={t.claimAmount} value={`${money(selected.claimedAmount)} THB`} strong />
+            </section>
+
+            <section>
+              <SectionTitle>{t.description}</SectionTitle>
+              <p className="m-0 whitespace-pre-wrap text-sm leading-6 text-gf-brown-800">
+                {selected.damageDescription}
+              </p>
+              {selected.renterReason && (
+                <div className="mt-4">
+                  <div className="mb-1 text-xs text-gf-muted">{t.renterReason}</div>
+                  <p className="m-0 whitespace-pre-wrap text-sm leading-6 text-gf-brown-800">
+                    {selected.renterReason}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <SectionTitle>{t.evidence}</SectionTitle>
+              {evidence.length ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {evidence.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setEvidenceIndex(index)}
+                      className="cursor-pointer border-0 bg-transparent p-0 text-left"
+                    >
+                      <span className="relative block aspect-square overflow-hidden rounded-[8px] border border-gf-line bg-white">
+                        <Image
+                          src={item.url}
+                          alt={item.label}
+                          fill
+                          sizes="180px"
+                          className="object-cover"
+                        />
+                      </span>
+                      <span className="mt-1.5 block text-xs text-gf-muted">
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gf-muted">{t.noEvidence}</p>
+              )}
+            </section>
+
+            {selected.status === 'resolved' && selected.decision && (
+              <section>
+                <SectionTitle>{t.decision}</SectionTitle>
+                <DetailRow
+                  label={t.decision}
+                  value={t.decisionLabels[selected.decision]}
+                />
+                <DetailRow
+                  label={t.approvedAmount}
+                  value={`${money(selected.approvedAmount ?? 0)} THB`}
+                  strong
+                />
+                <DetailRow
+                  label={t.decisionNote}
+                  value={selected.decisionNote ?? '-'}
+                />
+                {selected.reviewedBy && (
+                  <DetailRow label={t.reviewedBy} value={selected.reviewedBy} />
+                )}
+                {selected.reviewedAt && (
+                  <DetailRow
+                    label={t.reviewedAt}
+                    value={dateFormatter.format(new Date(selected.reviewedAt))}
+                  />
+                )}
+              </section>
+            )}
           </div>
         )}
       </DetailDrawer>
 
-      <FormDialog open={renterRulingOpen} onOpenChange={setRenterRulingOpen} title="Rule in favour of renter" submitLabel="Submit ruling" onSubmit={renterForm.handleSubmit(() => { showToast(tr('Ruling submitted — renter favoured')); setRenterRulingOpen(false) })}>
-        <form className="flex flex-col gap-[12px]">
-          <div><Label>Ruling notes</Label><Textarea {...renterForm.register('notes')} className="[margin-top:6px]" /></div>
-          <div><Label>Refund amount (THB)</Label><Input type="number" {...renterForm.register('amount', { valueAsNumber: true })} className="[margin-top:6px]" /></div>
-        </form>
+      <FormDialog
+        open={resolveOpen}
+        onOpenChange={setResolveOpen}
+        title={t.resolveTitle}
+        submitLabel={t.submit}
+        onSubmit={submitResolution}
+        contentClassName="sm:max-w-[680px]"
+      >
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label>{t.decisionLabel}</Label>
+            <Select
+              value={decision}
+              onValueChange={(value) => {
+                if (
+                  value === 'no_damage' ||
+                  value === 'partial_damage' ||
+                  value === 'full_damage'
+                ) {
+                  setDecision(value)
+                  setApprovedAmount(
+                    value === 'full_damage' && selected
+                      ? String(Math.min(selected.claimedAmount, selected.deposit))
+                      : '',
+                  )
+                }
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t.selectDecision} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no_damage">{t.noDamage}</SelectItem>
+                <SelectItem value="partial_damage">{t.partialDamage}</SelectItem>
+                <SelectItem value="full_damage">{t.fullDamage}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {decision !== 'no_damage' && (
+            <div className="grid gap-1.5">
+              <Label>{t.amount}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={selected ? Math.min(selected.claimedAmount, selected.deposit) : 0}
+                step="0.01"
+                value={approvedAmount}
+                disabled={decision === 'full_damage'}
+                onChange={(event) => setApprovedAmount(event.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="grid gap-1.5">
+            <Label>{t.note}</Label>
+            <Textarea
+              value={decisionNote}
+              onChange={(event) => setDecisionNote(event.target.value)}
+              placeholder={t.notePlaceholder}
+              rows={5}
+            />
+          </div>
+        </div>
       </FormDialog>
-      <FormDialog open={ownerRulingOpen} onOpenChange={setOwnerRulingOpen} title="Rule in favour of owner" submitLabel="Submit ruling" onSubmit={ownerForm.handleSubmit(() => { showToast(tr('Ruling submitted — owner favoured')); setOwnerRulingOpen(false) })}>
-        <form className="flex flex-col gap-[12px]">
-          <div><Label>Ruling notes</Label><Textarea {...ownerForm.register('notes')} className="[margin-top:6px]" /></div>
-          <div><Label>Penalty amount (THB)</Label><Input type="number" {...ownerForm.register('amount', { valueAsNumber: true })} className="[margin-top:6px]" /></div>
-        </form>
-      </FormDialog>
-      <ConfirmDialog open={closeOpen} onOpenChange={setCloseOpen} title="Close without action?" description="This dispute will be marked resolved with no financial action taken." onConfirm={() => { if (selected) closeMutation.mutate(selected.id); setCloseOpen(false) }} />
+
+      <ProductMediaLightbox
+        media={evidence.map((item) => ({
+          id: item.id,
+          mediaType: 'image' as const,
+          url: item.url,
+        }))}
+        productName={selected?.product.name ?? t.evidence}
+        initialIndex={evidenceIndex}
+        onIndexChange={setEvidenceIndex}
+        onOpenChange={(open) => {
+          if (!open) setEvidenceIndex(null)
+        }}
+      />
+    </div>
+  )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-3 mt-0 border-b border-gf-line pb-2 text-sm font-bold text-gf-brown-900">
+      {children}
+    </h3>
+  )
+}
+
+function DetailRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string
+  value: React.ReactNode
+  strong?: boolean
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gf-line py-2.5 text-sm">
+      <span className="shrink-0 text-gf-muted">{label}</span>
+      <span
+        className={cn(
+          'min-w-0 text-right text-gf-brown-800',
+          strong && 'font-bold text-gf-brown-900',
+        )}
+      >
+        {value}
+      </span>
     </div>
   )
 }

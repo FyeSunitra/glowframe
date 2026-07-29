@@ -14,37 +14,58 @@ import {
 import { policyService } from '@/services/policy'
 import { getPageText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
-import type { RequiredPolicy, RequiredPolicyType } from '@/types/policy'
+import type {
+  PolicyContext,
+  RequiredPolicy,
+  RequiredPolicyType,
+} from '@/types/policy'
 
 interface PolicyModalProps {
   open: boolean
   policyType: RequiredPolicyType | null
+  context?: PolicyContext
   onOpenChange: (open: boolean) => void
 }
 
 export function PolicyModal({
   open,
   policyType,
+  context = 'signup',
   onOpenChange,
 }: PolicyModalProps) {
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'signup')
   const [policies, setPolicies] = useState<RequiredPolicy[] | null>(null)
+  const [loadedLocale, setLoadedLocale] = useState<'th' | 'en' | null>(null)
+  const [loadedContext, setLoadedContext] = useState<PolicyContext | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const requestStarted = useRef(false)
 
   useEffect(() => {
-    if (!open || policies !== null || loadFailed || requestStarted.current) return
+    if (
+      !open
+      || (
+        policies !== null
+        && loadedLocale === locale
+        && loadedContext === context
+      )
+      || requestStarted.current
+    ) return
     requestStarted.current = true
+    setLoadFailed(false)
+    setPolicies(null)
 
-    policyService.listRequired().then((result) => {
+    policyService.listRequired({ locale, context }).then((result) => {
       if (result.success) {
         setPolicies(result.data)
+        setLoadedLocale(locale)
+        setLoadedContext(context)
       } else {
         setLoadFailed(true)
       }
+      requestStarted.current = false
     })
-  }, [loadFailed, open, policies])
+  }, [context, loadedContext, loadedLocale, locale, open, policies])
 
   const policy = useMemo(
     () => policies?.find((item) => item.type === policyType),
@@ -57,19 +78,13 @@ export function PolicyModal({
     termsOfService: t.termsAndConditions,
     privacyPolicy: t.privacyPolicy,
     rentalAgreement: t.rentalPolicy,
+    paymentPolicy: t.paymentPolicy,
   }
-  const databaseBody = policy?.body.trim() ?? ''
-  const isPrototypePlaceholder = /demo content for the MVP/i.test(databaseBody)
-  const bodyMatchesLocale =
-    !isPrototypePlaceholder &&
-    (locale === 'th'
-      ? /[\u0E00-\u0E7F]/.test(databaseBody)
-      : /[A-Za-z]/.test(databaseBody))
-  const body = bodyMatchesLocale ? databaseBody : t.policyFallback[policyType]
+  const body = policy?.body.trim() || t.policyFallback[policyType]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(720px,calc(100vh-32px))] max-w-[680px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-gf-cream p-0">
+      <DialogContent className="h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-gf-cream p-0 sm:h-[min(820px,calc(100vh-40px))] sm:w-[calc(100vw-40px)] sm:max-w-[840px] lg:max-w-[960px]">
         <DialogHeader className="border-b border-gf-line px-6 py-5">
           <DialogIconTitle
             icon={<FileText size={19} />}

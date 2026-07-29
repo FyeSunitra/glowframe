@@ -17,7 +17,7 @@ export interface MasterListMeta {
 
 export interface MasterListResult<T> {
   items: T[]
-  meta?: MasterListMeta
+  meta: MasterListMeta
 }
 
 export interface MasterListParams extends QueryParams {

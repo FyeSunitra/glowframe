@@ -141,11 +141,11 @@ export default function KYCPage() {
         </span>
       ),
     },
-    {
-      key: 'retries',
-      header: t.retries,
-      render: (item: AdminKycRequest) => item.retryCount,
-    },
+    // {
+    //   key: 'retries',
+    //   header: t.retries,
+    //   render: (item: AdminKycRequest) => item.retryCount,
+    // },
     {
       key: 'status',
       header: t.status,
@@ -290,7 +290,7 @@ export default function KYCPage() {
               { label: t.email, value: selected.user.email },
               { label: t.documentType, value: t.nationalId },
               { label: t.submitted, value: formatDate(selected.submittedAt) },
-              { label: t.retries, value: selected.retryCount },
+              // { label: t.retries, value: selected.retryCount },
             ].map((row) => (
               <div
                 key={row.label}

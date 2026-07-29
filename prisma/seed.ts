@@ -3,11 +3,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import {
   MediaType,
   PolicyDocumentStatus,
-  PolicyDocumentType,
   PrismaClient,
   ProductStatus,
   UserRole,
 } from "../lib/generated/prisma/client";
+import { policySeedDocuments } from "./policySeedData";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -64,7 +64,7 @@ async function main() {
     where: { code: "004" },
   });
 
-  await prisma.platformSetting.upsert({
+  const platformSetting = await prisma.platformSetting.upsert({
     where: { id: 1 },
     update: {},
     create: {
@@ -73,6 +73,29 @@ async function main() {
       supportedBanks: banks.map((bank) => bank.name).join(", "),
     },
   });
+
+  if (platformBank) {
+    const existingPaymentAccount = await prisma.platformPaymentAccount.findFirst({
+      where: {
+        settingId: platformSetting.id,
+        bankId: platformBank.id,
+        accountNumber: platformSetting.platformAccountNo,
+      },
+    });
+
+    if (!existingPaymentAccount) {
+      await prisma.platformPaymentAccount.create({
+        data: {
+          settingId: platformSetting.id,
+          bankId: platformBank.id,
+          accountName: platformSetting.platformAccountName,
+          accountNumber: platformSetting.platformAccountNo,
+          isActive: true,
+          sortOrder: 0,
+        },
+      });
+    }
+  }
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@glowframe.test" },
@@ -246,58 +269,18 @@ async function main() {
   );
 
   const now = new Date();
-  const policyDocuments = [
-    {
-      type: PolicyDocumentType.termsOfService,
-      title: "Terms of Service",
-      version: "v1.0",
-      summary: "Initial platform terms for account usage, bookings, payments, and admin decisions.",
-      body: "GlowFrame Terms of Service demo content for the MVP.",
-      forceReconsent: true,
-    },
-    {
-      type: PolicyDocumentType.privacyPolicy,
-      title: "Privacy Policy",
-      version: "v1.0",
-      summary: "Initial privacy policy covering account, rental, payment, and verification data.",
-      body: "GlowFrame Privacy Policy demo content for the MVP.",
-      forceReconsent: true,
-    },
-    {
-      type: PolicyDocumentType.rentalAgreement,
-      title: "Rental Agreement",
-      version: "v1.0",
-      summary: "Rules for booking, handover, active rental, returns, late fees, and damage review.",
-      body: "GlowFrame Rental Agreement demo content for the MVP.",
-      forceReconsent: false,
-    },
-    {
-      type: PolicyDocumentType.listingPolicy,
-      title: "Listing Policy",
-      version: "v1.0",
-      summary: "Rules for owners listing approved camera equipment on GlowFrame.",
-      body: "GlowFrame Listing Policy demo content for the MVP.",
-      forceReconsent: false,
-    },
-    {
-      type: PolicyDocumentType.paymentPolicy,
-      title: "Payment Policy",
-      version: "v1.0",
-      summary: "Payment proof review, platform-held funds, refunds, payouts, and withdrawal rules.",
-      body: "GlowFrame Payment Policy demo content for the MVP.",
-      forceReconsent: false,
-    },
-    {
-      type: PolicyDocumentType.identityVerificationConsent,
-      title: "Identity Verification Consent",
-      version: "v1.0",
-      summary: "Consent terms for identity document review and private storage handling.",
-      body: "GlowFrame Identity Verification Consent demo content for the MVP.",
-      forceReconsent: true,
-    },
-  ];
+  const policyDocuments = policySeedDocuments;
 
   for (const document of policyDocuments) {
+    const policyData = {
+      type: document.type,
+      titleTh: document.titleTh,
+      titleEn: document.titleEn,
+      version: document.version,
+      bodyTh: document.bodyTh,
+      bodyEn: document.bodyEn,
+      forceReconsent: document.forceReconsent,
+    };
     await prisma.policyDocument.upsert({
       where: {
         type_version: {
@@ -306,9 +289,10 @@ async function main() {
         },
       },
       update: {
-        title: document.title,
-        summary: document.summary,
-        body: document.body,
+        titleTh: document.titleTh,
+        titleEn: document.titleEn,
+        bodyTh: document.bodyTh,
+        bodyEn: document.bodyEn,
         isRequired: true,
         status: PolicyDocumentStatus.current,
         forceReconsent: document.forceReconsent,
@@ -316,7 +300,7 @@ async function main() {
         publishedAt: now,
       },
       create: {
-        ...document,
+        ...policyData,
         isRequired: true,
         status: PolicyDocumentStatus.current,
         effectiveAt: now,
