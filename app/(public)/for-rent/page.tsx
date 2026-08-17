@@ -12,8 +12,9 @@ import { useAppStore } from '@/store/appStore'
 export default function ForRentPage() {
   const t = getPageText(useAppStore((state) => state.locale), 'catalog')
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['products', 'public'],
+    queryKey: ['products', 'public', 'guest-catalog'],
     queryFn: async () => unwrapApiResponse(await productService.list()),
+    refetchOnMount: 'always',
   })
 
   return (

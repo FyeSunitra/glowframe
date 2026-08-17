@@ -109,7 +109,7 @@ export default function SignupPage() {
             <button onClick={() => setLocale(locale === 'th' ? 'en' : 'th')} className="cursor-pointer rounded-full border border-gf-pink-300 bg-transparent px-2.5 py-[5px] text-xs font-bold text-gf-pink-100">
               {locale === 'th' ? 'EN' : 'TH'}
             </button>
-            <span>{t.or} <Link href="/login" className="text-gf-pink-100 underline">{t.login}</Link></span>
+            <span>{t.or} <Link href="/log-in" className="text-gf-pink-100 underline">{t.login}</Link></span>
           </div>
         </div>
 

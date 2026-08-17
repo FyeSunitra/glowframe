@@ -134,7 +134,7 @@ export function AdminSidebar() {
   async function handleLogout() {
     await authService.logout();
     logout();
-    router.replace('/login');
+    router.replace('/log-in');
     router.refresh();
   }
 

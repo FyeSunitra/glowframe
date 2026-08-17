@@ -18,11 +18,9 @@ import { publicProductInclude, serializeProduct } from './_utils'
 
 export async function GET() {
   try {
-    const currentUserId = await getOptionalUserId()
     const products = await prisma.product.findMany({
       where: {
         status: ProductStatus.approved,
-        ...(currentUserId ? { ownerId: { not: currentUserId } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: publicProductInclude,
@@ -34,26 +32,6 @@ export async function GET() {
   } catch (error) {
     console.error('Failed to load products', error)
     return NextResponse.json({ error: 'Unable to load products.' }, { status: 500 })
-  }
-}
-
-async function getOptionalUserId() {
-  try {
-    const cookieStore = await cookies()
-    const resolved = await resolveSession(
-      cookieStore.get(ACCESS_TOKEN_COOKIE)?.value,
-      cookieStore.get(REFRESH_TOKEN_COOKIE)?.value,
-    )
-    if (!resolved) return null
-
-    const user = await prisma.user.findFirst({
-      where: { authUserId: resolved.user.id },
-      select: { id: true },
-    })
-    return user?.id ?? null
-  } catch (error) {
-    console.warn('Failed to resolve optional product viewer', error)
-    return null
   }
 }
 

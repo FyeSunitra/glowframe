@@ -25,10 +25,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       if (!result.success) {
         logout()
-        router.replace('/login')
+        router.replace('/log-in')
       } else if (result.data.user.role !== 'admin') {
         login(result.data.user)
-        router.replace('/home')
+        router.replace('/for-rent')
       } else {
         login(result.data.user)
       }
