@@ -2,70 +2,46 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
-import { BarChart2, DollarSign, TrendingDown, TrendingUp } from 'lucide-react'
+import { BadgeDollarSign, CircleDollarSign, PackageCheck, RotateCcw, WalletCards } from 'lucide-react'
+
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
-import { FilterBar } from '@/components/admin/shared/FilterBar'
-import { StatCard } from '@/components/admin/shared/StatCard'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { EmptyState } from '@/components/admin/shared/EmptyState'
+import { FilterBar } from '@/components/admin/shared/FilterBar'
+import { StatCard } from '@/components/admin/shared/StatCard'
+import { unwrapApiResponse } from '@/lib/api'
+import { getPageText } from '@/lib/menuI18n'
 import { money } from '@/lib/utils'
-import { useMenuI18n } from '@/hooks/useMenuI18n'
-
-interface RevenueRow { period: string; transactions: number; grossVolume: number; platformFees: number; refunds: number; netRevenue: number }
-interface RevenueStats { grossVolume: number; platformFees: number; refunds: number; netRevenue: number }
-interface RevenueResponse { data: RevenueRow[]; stats: RevenueStats }
-
-const PERIOD_OPTIONS = [{ value: 'today', label: 'Today' }, { value: 'this-week', label: 'This week' }, { value: 'this-month', label: 'This month' }, { value: 'last-month', label: 'Last month' }]
+import { adminRevenueService } from '@/services/adminRevenue'
+import { useAppStore } from '@/store/appStore'
+import type { AdminRevenueRow, RevenuePeriod } from '@/types/adminRevenue'
 
 export default function RevenuePage() {
-  const { tr } = useMenuI18n()
-  const [period, setPeriod] = useState('this-month')
-
-  const { data: response, isLoading } = useQuery<RevenueResponse>({
-    queryKey: ['admin', 'financial', 'revenue', period],
-    queryFn: () => axios.get('/api/admin/financial/revenue', { params: { period } }).then(r => r.data),
-  })
-
-  const rows = response?.data ?? []
-  const stats = response?.stats ?? { grossVolume: 0, platformFees: 0, refunds: 0, netRevenue: 0 }
-  const maxRevenue = Math.max(...rows.map(r => r.netRevenue), 1)
-
-  const COLUMNS = [
-    { key: 'period', header: 'Period', render: (r: RevenueRow) => <span className="font-semibold">{r.period}</span> },
-    { key: 'transactions', header: 'Transactions', render: (r: RevenueRow) => r.transactions },
-    { key: 'grossVolume', header: 'Gross volume', render: (r: RevenueRow) => `${money(r.grossVolume)} THB` },
-    { key: 'platformFees', header: 'Platform fees', render: (r: RevenueRow) => `${money(r.platformFees)} THB` },
-    { key: 'refunds', header: 'Refunds', render: (r: RevenueRow) => `${money(r.refunds)} THB` },
-    { key: 'netRevenue', header: 'Net revenue', render: (r: RevenueRow) => (
-      <div>
-        <span className="font-bold">{money(r.netRevenue)} THB</span>
-        <div className="bg-gf-pink-300 rounded-full h-[6px] [margin-top:4px] w-full">
-          <div className="h-1.5 rounded-full bg-gf-brown-800" style={{ width: `${(r.netRevenue / maxRevenue) * 100}%` }} />
-        </div>
-      </div>
-    )},
+  const locale = useAppStore((state) => state.locale)
+  const t = getPageText(locale, 'adminRevenue')
+  const [period, setPeriod] = useState<RevenuePeriod>('this-month')
+  const { data, isLoading, isError } = useQuery({ queryKey: ['admin', 'revenue', period], queryFn: () => adminRevenueService.get(period).then(unwrapApiResponse) })
+  const stats = data?.stats ?? { grossVolume: 0, platformFees: 0, ownerReceivables: 0, depositReturns: 0, completedBookings: 0 }
+  const date = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en-GB', { dateStyle: 'medium' })
+  const columns = [
+    { key: 'period', header: t.date, render: (row: AdminRevenueRow) => <span className="whitespace-nowrap font-semibold">{date.format(new Date(`${row.period}T00:00:00Z`))}</span> },
+    { key: 'transactions', header: t.transactions },
+    { key: 'grossVolume', header: t.grossVolume, render: (row: AdminRevenueRow) => `${money(row.grossVolume)} THB` },
+    { key: 'rentalAmount', header: t.rentalAmount, render: (row: AdminRevenueRow) => `${money(row.rentalAmount)} THB` },
+    { key: 'platformFees', header: t.platformFees, render: (row: AdminRevenueRow) => <b className="text-gf-green">{money(row.platformFees)} THB</b> },
+    { key: 'ownerReceivables', header: t.ownerReceivables, render: (row: AdminRevenueRow) => `${money(row.ownerReceivables)} THB` },
+    { key: 'depositReturns', header: t.depositReturns, render: (row: AdminRevenueRow) => `${money(row.depositReturns)} THB` },
   ]
-
-  return (
-    <div className="animate-fade-up">
-      <AdminPageHeader
-        breadcrumb={['Admin', 'Financial', 'Revenue']}
-        title="Revenue & Reconciliation"
-        action={<button className="[border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:9px_16px] text-[13px] font-semibold cursor-pointer">{tr('Export CSV')}</button>}
-      />
-      <FilterBar selects={[{ label: 'Period', value: period, onChange: setPeriod, options: PERIOD_OPTIONS }]} />
-
-      <div className="grid [grid-template-columns:repeat(4,1fr)] gap-[22px] [margin-bottom:22px]">
-        <StatCard icon={DollarSign} label="Gross Transaction Volume" value={isLoading ? '' : `${money(stats.grossVolume)} THB`} />
-        <StatCard icon={TrendingUp} label="Platform Fees Collected" value={isLoading ? '' : `${money(stats.platformFees)} THB`} />
-        <StatCard icon={TrendingDown} label="Refunds Issued" value={isLoading ? '' : `${money(stats.refunds)} THB`} />
-        <StatCard icon={BarChart2} label="Net Revenue" value={isLoading ? '' : `${money(stats.netRevenue)} THB`} />
-      </div>
-
-      <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] [padding:28px]">
-        <DataTable columns={COLUMNS} data={rows} loading={isLoading} empty={<EmptyState icon={BarChart2} heading="No revenue data for this period" sub="Revenue data will appear once transactions are processed." />} />
-      </div>
+  return <div className="animate-fade-up">
+    <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
+    <FilterBar selects={[{ label: t.period, value: period, onChange: (value) => setPeriod(value as RevenuePeriod), options: [{ value: 'today', label: t.today }, { value: 'this-week', label: t.thisWeek }, { value: 'this-month', label: t.thisMonth }, { value: 'last-month', label: t.lastMonth }] }]} />
+    <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <StatCard icon={CircleDollarSign} label={t.grossVolume} value={`${money(stats.grossVolume)} THB`} />
+      <StatCard icon={BadgeDollarSign} label={t.platformFees} value={`${money(stats.platformFees)} THB`} />
+      <StatCard icon={WalletCards} label={t.ownerReceivables} value={`${money(stats.ownerReceivables)} THB`} />
+      <StatCard icon={RotateCcw} label={t.depositReturns} value={`${money(stats.depositReturns)} THB`} />
+      <StatCard icon={PackageCheck} label={t.completedBookings} value={stats.completedBookings} />
     </div>
-  )
+    {isError ? <EmptyState icon={CircleDollarSign} heading={t.loadFailed} sub={t.noDataSub} /> : <DataTable columns={columns} data={data?.rows ?? []} loading={isLoading} empty={<EmptyState icon={CircleDollarSign} heading={t.noData} sub={t.noDataSub} />} />}
+  </div>
 }

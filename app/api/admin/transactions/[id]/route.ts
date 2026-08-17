@@ -81,16 +81,8 @@ export async function PATCH(
         include: adminTransactionInclude,
       })
     })
-    const settings = await prisma.platformSetting.findUnique({
-      where: { id: 1 },
-      select: { platformFee: true },
-    })
-
     const response = NextResponse.json({
-      data: serializeAdminTransaction(
-        payment,
-        Number(settings?.platformFee ?? 0),
-      ),
+      data: serializeAdminTransaction(payment),
     })
     if (admin.refreshedSession) {
       setSessionCookies(response, admin.refreshedSession)

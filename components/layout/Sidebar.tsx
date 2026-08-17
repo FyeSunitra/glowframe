@@ -2,22 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home, Camera, User, Wallet, Info, LogOut, CalendarRange,
-} from 'lucide-react';
+import { Camera, Info, Images } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
-import { useRouter } from 'next/navigation';
 import { getMenuText } from '@/lib/menuI18n';
 import { cn } from '@/lib/utils';
-import { authService } from '@/services/auth';
 
 const NAV_ITEMS = [
   { href: '/about',       labelKey: 'about',     icon: Info },
-  { href: '/home',        labelKey: 'home',      icon: Home },
   { href: '/for-rent',    labelKey: 'forRent',   icon: Camera },
-  { href: '/rentals',     labelKey: 'myRentals', icon: CalendarRange },
-  { href: '/account/profile', labelKey: 'myAccount', icon: User },
-  { href: '/wallet',      labelKey: 'wallet',    icon: Wallet },
+  { href: '/photobooth',  labelKey: 'photobooth', icon: Images },
 ];
 
 /** Which sidebar key is "active" for nested routes */
@@ -25,27 +18,14 @@ function activeKey(pathname: string): string {
   if (pathname.startsWith('/about'))        return '/about';
   if (pathname.startsWith('/for-rent') || pathname.startsWith('/transaction') || pathname.startsWith('/booking-confirmed'))
     return '/for-rent';
-  if (pathname.startsWith('/rentals'))      return '/rentals';
-  if (pathname.startsWith('/list-camera'))  return '/home';
-  if (pathname.startsWith('/home'))         return '/home';
-  if (pathname.startsWith('/account'))      return '/account/profile';
-  if (pathname.startsWith('/wallet'))       return '/wallet';
-  return '/home';
+  if (pathname.startsWith('/photobooth'))     return '/photobooth';
+  return '/for-rent';
 }
 
 export function Sidebar() {
   const pathname = usePathname();
-  const logout = useAppStore((s) => s.logout);
   const t = getMenuText(useAppStore((s) => s.locale));
-  const router = useRouter();
   const active = activeKey(pathname);
-
-  async function handleLogout() {
-    await authService.logout();
-    logout();
-    router.replace('/login');
-    router.refresh();
-  }
 
   return (
     <nav className="flex w-[250px] shrink-0 flex-col gap-1.5 px-[18px] py-[26px] max-[900px]:w-full max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:overflow-y-visible max-[900px]:border-b max-[900px]:border-gf-line max-[900px]:px-3.5 max-[900px]:py-3 [&_a]:max-[900px]:whitespace-nowrap [&_button]:max-[900px]:whitespace-nowrap">
@@ -67,16 +47,6 @@ export function Sidebar() {
           </Link>
         );
       })}
-
-      <div className="h-[1px] bg-gf-line [margin:10px_6px]" />
-
-      <button
-        onClick={() => void handleLogout()}
-        className="flex items-center gap-[13px] [padding:13px_16px] rounded-[16px] text-gf-brown-700 font-medium text-[15px] bg-transparent border-0 cursor-pointer text-left"
-      >
-        <LogOut size={20} className="shrink-0" />
-        <span>{t.logout}</span>
-      </button>
     </nav>
   );
 }

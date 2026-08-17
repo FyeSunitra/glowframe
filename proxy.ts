@@ -32,22 +32,36 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  if (isAdminRequest) {
-    const databaseUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { authUserId: resolved.user.id },
-          ...(resolved.user.email
-            ? [{ email: resolved.user.email.trim().toLowerCase() }]
-            : []),
-        ],
-      },
-      select: {
-        role: true,
-        status: true,
-      },
-    })
+  const databaseUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { authUserId: resolved.user.id },
+        ...(resolved.user.email
+          ? [{ email: resolved.user.email.trim().toLowerCase() }]
+          : []),
+      ],
+    },
+    select: {
+      role: true,
+      status: true,
+    },
+  })
 
+  if (databaseUser?.status === 'suspended') {
+    if (isApiRequest) {
+      const response = NextResponse.json(
+        { error: 'Account suspended.', code: 'ACCOUNT_SUSPENDED' },
+        { status: 403 },
+      )
+      clearSessionCookies(response)
+      return response
+    }
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    clearSessionCookies(response)
+    return response
+  }
+
+  if (isAdminRequest) {
     if (!databaseUser || databaseUser.role !== 'admin' || databaseUser.status !== 'active') {
       if (isApiRequest) {
         return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
@@ -63,14 +77,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/about/:path*',
-    '/home/:path*',
-    '/for-rent/:path*',
-    '/account/:path*',
-    '/wallet/:path*',
-    '/list-camera/:path*',
-    '/transaction/:path*',
-    '/booking-confirmed/:path*',
     '/admin/:path*',
     '/api/admin/:path*',
     '/api/user/:path*',

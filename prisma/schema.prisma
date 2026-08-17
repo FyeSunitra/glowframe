@@ -104,6 +104,14 @@ enum WithdrawalStatus {
   @@map("withdrawal_status")
 }
 
+enum BankAccountVerificationStatus {
+  pending
+  approved
+  rejected
+
+  @@map("bank_account_verification_status")
+}
+
 enum ReturnStatus {
   pending
   renterReturned @map("renter_returned")
@@ -165,6 +173,7 @@ model User {
   bankAccounts          BankAccount[]
   withdrawals           Withdrawal[]           @relation("WithdrawalUser")
   reviewedWithdrawals   Withdrawal[]           @relation("WithdrawalReviewer")
+  reviewedBankAccounts  BankAccount[]          @relation("BankAccountVerifier")
   reviews               Review[]
   notifications         Notification[]
   policyAcceptances     UserPolicyAcceptance[]
@@ -373,6 +382,9 @@ model Booking {
   productPriceSnapshot    Decimal        @map("product_price_snapshot") @db.Decimal(12, 2)
   depositSnapshot         Decimal        @map("deposit_snapshot") @db.Decimal(12, 2)
   rentalFee               Decimal        @map("rental_fee") @db.Decimal(12, 2)
+  platformFeeRateSnapshot Decimal        @default(10) @map("platform_fee_rate_snapshot") @db.Decimal(5, 2)
+  platformFeeAmount       Decimal        @default(0) @map("platform_fee_amount") @db.Decimal(12, 2)
+  ownerReceivableAmount   Decimal        @default(0) @map("owner_receivable_amount") @db.Decimal(12, 2)
   totalAmount             Decimal        @map("total_amount") @db.Decimal(12, 2)
   recipientName           String?        @map("recipient_name") @db.VarChar(160)
   recipientPhone          String?        @map("recipient_phone") @db.VarChar(40)
@@ -523,26 +535,33 @@ model WalletEntry {
 }
 
 model BankAccount {
-  id                     BigInt   @id @default(autoincrement())
-  userId                 BigInt   @map("user_id")
-  bankId                 BigInt?  @map("bank_id")
-  bankName               String   @map("bank_name") @db.VarChar(120)
-  accountName            String   @map("account_name") @db.VarChar(160)
-  accountNumberEncrypted String   @map("account_number_encrypted")
-  accountNumberLast4     String   @map("account_number_last4") @db.VarChar(4)
-  accountNumberMasked    String   @map("account_number_masked") @db.VarChar(40)
-  isDefault              Boolean  @default(false) @map("is_default")
-  verifiedByAdmin        Boolean  @default(false) @map("verified_by_admin")
-  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                     BigInt                        @id @default(autoincrement())
+  userId                 BigInt                        @map("user_id")
+  bankId                 BigInt?                       @map("bank_id")
+  bankName               String                        @map("bank_name") @db.VarChar(120)
+  accountName            String                        @map("account_name") @db.VarChar(160)
+  accountNumberEncrypted String                        @map("account_number_encrypted")
+  accountNumberLast4     String                        @map("account_number_last4") @db.VarChar(4)
+  accountNumberMasked    String                        @map("account_number_masked") @db.VarChar(40)
+  isDefault              Boolean                       @default(false) @map("is_default")
+  verifiedByAdmin        Boolean                       @default(false) @map("verified_by_admin")
+  verificationStatus     BankAccountVerificationStatus @default(pending) @map("verification_status")
+  verifiedBy             BigInt?                       @map("verified_by")
+  verifiedAt             DateTime?                     @map("verified_at") @db.Timestamptz
+  verificationReason     String?                       @map("verification_reason")
+  createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime                      @updatedAt @map("updated_at") @db.Timestamptz
 
   user        User         @relation(fields: [userId], references: [id])
   bank        Bank?        @relation(fields: [bankId], references: [id])
+  verifier    User?        @relation("BankAccountVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
   withdrawals Withdrawal[]
 
   @@index([userId])
   @@index([bankId])
   @@index([isDefault])
+  @@index([verificationStatus])
+  @@index([verifiedBy])
   @@map("bank_accounts")
 }
 
@@ -611,16 +630,21 @@ model PlatformPaymentAccount {
 }
 
 model Withdrawal {
-  id              BigInt           @id @default(autoincrement())
-  userId          BigInt           @map("user_id")
-  walletId        BigInt           @map("wallet_id")
-  bankAccountId   BigInt           @map("bank_account_id")
-  amount          Decimal          @db.Decimal(12, 2)
-  status          WithdrawalStatus @default(pending)
-  rejectionReason String?          @map("rejection_reason")
-  reviewedBy      BigInt?          @map("reviewed_by")
-  reviewedAt      DateTime?        @map("reviewed_at") @db.Timestamptz
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  id                       BigInt           @id @default(autoincrement())
+  userId                   BigInt           @map("user_id")
+  walletId                 BigInt           @map("wallet_id")
+  bankAccountId            BigInt           @map("bank_account_id")
+  amount                   Decimal          @db.Decimal(12, 2)
+  status                   WithdrawalStatus @default(pending)
+  rejectionReason          String?          @map("rejection_reason")
+  reviewedBy               BigInt?          @map("reviewed_by")
+  reviewedAt               DateTime?        @map("reviewed_at") @db.Timestamptz
+  transferProofStoragePath String?          @map("transfer_proof_storage_path")
+  transferProofFileName    String?          @map("transfer_proof_file_name") @db.VarChar(255)
+  transferReference        String?          @map("transfer_reference") @db.VarChar(120)
+  transferNote             String?          @map("transfer_note")
+  transferredAt            DateTime?        @map("transferred_at") @db.Timestamptz
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
   user        User        @relation("WithdrawalUser", fields: [userId], references: [id])
   wallet      Wallet      @relation(fields: [walletId], references: [id])

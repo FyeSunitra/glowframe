@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     const settings = await prisma.platformSetting.findUnique({
       where: { id: 1 },
-      select: { minAdvanceDays: true },
+      select: { minAdvanceDays: true, platformFee: true },
     })
     const minimumStart = startOfUtcDay(new Date())
     minimumStart.setUTCDate(
@@ -236,6 +236,14 @@ export async function POST(request: NextRequest) {
       const totalAmount = rentalFee
         .add(product.depositAmount)
         .add(deliveryFee)
+      const platformFeeRate = settings?.platformFee ?? new Prisma.Decimal(10)
+      const platformFeeAmount = rentalFee
+        .mul(platformFeeRate)
+        .div(100)
+        .toDecimalPlaces(2)
+      const ownerReceivableAmount = rentalFee
+        .sub(platformFeeAmount)
+        .add(deliveryFee)
 
       return transaction.booking.create({
         data: {
@@ -252,6 +260,9 @@ export async function POST(request: NextRequest) {
           productPriceSnapshot: product.pricePerDay,
           depositSnapshot: product.depositAmount,
           rentalFee,
+          platformFeeRateSnapshot: platformFeeRate,
+          platformFeeAmount,
+          ownerReceivableAmount,
           totalAmount,
           pickupAddressSnapshot: formatAddress(product.pickupAddress),
           payments: {

@@ -1,134 +1,323 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { PackageCheck, MoreHorizontal } from 'lucide-react'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Camera, MoreHorizontal, PackageCheck } from 'lucide-react'
+
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
-import { FilterBar } from '@/components/admin/shared/FilterBar'
 import { DataTable } from '@/components/admin/shared/DataTable'
-import { StatusBadge } from '@/components/admin/shared/StatusBadge'
-import { EmptyState } from '@/components/admin/shared/EmptyState'
 import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
-import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
-import { PillTabs } from '@/components/admin/shared/PillTabs'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { CameraGlyph } from '@/components/common/CameraGlyph'
-import { useToast } from '@/hooks/useToast'
+import { EmptyState } from '@/components/admin/shared/EmptyState'
+import { FilterBar } from '@/components/admin/shared/FilterBar'
+import { Pagination } from '@/components/common/Pagination'
+import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { unwrapApiResponse } from '@/lib/api'
+import { getPageText } from '@/lib/menuI18n'
 import { cn } from '@/lib/utils'
-import { useMenuI18n } from '@/hooks/useMenuI18n'
+import { adminOperationsService } from '@/services/adminOperations'
+import { useAppStore } from '@/store/appStore'
+import type {
+  ReturnOperation,
+  ReturnOperationStatus,
+} from '@/types/adminOperations'
 
-interface PendingReturn { id: number; bookingNo: string; camera: { name: string; color: string }; renter: string; owner: string; dueDate: string; delivery: string; status: string }
-interface ConditionReport { id: number; reportId: string; bookingNo: string; camera: string; condition: string; reportedBy: string; photos: number; reported: string; claimStatus: string }
-
-const CONDITION_OPTIONS = [{ value: '', label: 'All conditions' }, { value: 'intact', label: 'Intact' }, { value: 'minor-damage', label: 'Minor damage' }, { value: 'major-damage', label: 'Major damage' }, { value: 'missing', label: 'Missing' }]
-const TABS = ['Pending Returns', 'Submitted Reports']
+type ReturnTab = 'pending' | 'history'
 
 export default function ReturnsPage() {
-  const { tr } = useMenuI18n()
-  const { showToast } = useToast()
-  const qc = useQueryClient()
-  const [activeTab, setActiveTab] = useState('Pending Returns')
+  const locale = useAppStore((state) => state.locale)
+  const t = getPageText(locale, 'adminReturns')
+  const bookingText = getPageText(locale, 'myRentals')
+  const router = useRouter()
+  const [tab, setTab] = useState<ReturnTab>('pending')
   const [search, setSearch] = useState('')
-  const [conditionFilter, setConditionFilter] = useState('')
-  const [selected, setSelected] = useState<ConditionReport | null>(null)
+  const [status, setStatus] = useState<ReturnOperationStatus | ''>('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [selected, setSelected] = useState<ReturnOperation | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [markReturnedId, setMarkReturnedId] = useState<number | null>(null)
+  const [evidenceIndex, setEvidenceIndex] = useState<number | null>(null)
 
-  const tab = activeTab === 'Submitted Reports' ? 'reports' : 'pending'
-  const filters = { tab, search, condition: conditionFilter }
-  const { data: items = [], isLoading } = useQuery<(PendingReturn | ConditionReport)[]>({
+  const filters = { tab, search, status, page, limit }
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'operations', 'returns', filters],
-    queryFn: () => axios.get('/api/admin/operations/returns', { params: filters }).then(r => r.data.data),
+    queryFn: () =>
+      adminOperationsService.returns(filters).then(unwrapApiResponse),
   })
-  const pending = items as PendingReturn[]
-  const reports = items as ConditionReport[]
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'operations', 'returns'] })
-  const markReturnedMutation = useMutation({ mutationFn: (id: number) => axios.patch(`/api/admin/operations/returns/${id}`, { action: 'mark-returned' }), onSuccess: () => { invalidate(); showToast(tr('Marked as returned')) } })
-
-  const PENDING_COLS = [
-    { key: 'bookingNo', header: 'Booking #', render: (r: PendingReturn) => r.bookingNo },
-    { key: 'camera', header: 'Camera', render: (r: PendingReturn) => <span className="flex items-center gap-[8px]"><CameraGlyph size={28} color={r.camera.color} />{r.camera.name}</span> },
-    { key: 'renter', header: 'Renter', render: (r: PendingReturn) => r.renter },
-    { key: 'owner', header: 'Owner', render: (r: PendingReturn) => r.owner },
-    { key: 'dueDate', header: 'Due date', render: (r: PendingReturn) => <span className={cn('font-semibold', r.status === 'overdue' && 'text-gf-red')}>{r.dueDate}</span> },
-    { key: 'delivery', header: 'Delivery', render: (r: PendingReturn) => <span className="[text-transform:capitalize]">{r.delivery}</span> },
-    { key: 'status', header: 'Status', render: (r: PendingReturn) => <StatusBadge status={r.status} /> },
-    { key: 'actions', header: '', render: (r: PendingReturn) => (
-      <span className="flex gap-[6px]">
-        <button onClick={() => setMarkReturnedId(r.id)} className="text-[12px] [padding:4px_10px] rounded-full border-0 bg-gf-pink-500 cursor-pointer text-gf-brown-900 font-semibold">{tr('Mark returned')}</button>
-        <button onClick={() => showToast(tr('Flagged as late return'))} className="text-[12px] [padding:4px_10px] rounded-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent cursor-pointer text-gf-brown-700">{tr('Flag late')}</button>
-      </span>
-    )},
+  const dateFormatter = new Intl.DateTimeFormat(
+    locale === 'th' ? 'th-TH' : 'en-GB',
+    { day: 'numeric', month: 'short', year: 'numeric' },
+  )
+  const dateTimeFormatter = new Intl.DateTimeFormat(
+    locale === 'th' ? 'th-TH' : 'en-GB',
+    { dateStyle: 'medium', timeStyle: 'short' },
+  )
+  const rows = data?.items ?? []
+  const evidence = selected
+    ? [
+        { id: 'return', label: t.evidence, url: selected.evidenceUrl },
+        { id: 'damage', label: t.damageEvidence, url: selected.damageEvidenceUrl },
+      ].flatMap((item) => item.url ? [{ ...item, url: item.url }] : [])
+    : []
+  const statusOptions = [
+    { value: '', label: t.allStatuses },
+    ...(tab === 'pending'
+      ? [
+          { value: 'active', label: t.statuses.active },
+          { value: 'overdue', label: t.statuses.overdue },
+          { value: 'awaitingOwner', label: t.statuses.awaitingOwner },
+        ]
+      : [
+          { value: 'completed', label: t.statuses.completed },
+          { value: 'damageReported', label: t.statuses.damageReported },
+          { value: 'disputed', label: t.statuses.disputed },
+        ]),
   ]
 
-  const REPORT_COLS = [
-    { key: 'reportId', header: 'Report ID', render: (r: ConditionReport) => <span className="font-[var(--font-poppins)] font-semibold text-[12px]">{r.reportId}</span> },
-    { key: 'bookingNo', header: 'Booking #', render: (r: ConditionReport) => r.bookingNo },
-    { key: 'camera', header: 'Camera', render: (r: ConditionReport) => r.camera },
-    { key: 'condition', header: 'Condition', render: (r: ConditionReport) => <StatusBadge status={r.condition} /> },
-    { key: 'reportedBy', header: 'Reported by', render: (r: ConditionReport) => r.reportedBy },
-    { key: 'photos', header: 'Photos', render: (r: ConditionReport) => r.photos },
-    { key: 'reported', header: 'Reported', render: (r: ConditionReport) => <span className="text-[12.5px] text-gf-muted">{r.reported}</span> },
-    { key: 'claimStatus', header: 'Claim status', render: (r: ConditionReport) => <StatusBadge status={r.claimStatus === 'none' ? 'default' : r.claimStatus} /> },
-    { key: 'actions', header: '', render: (r: ConditionReport) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={e => e.stopPropagation()}><MoreHorizontal size={16} /></DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(r); setDrawerOpen(true) }}>{tr('View')}</DropdownMenuItem>
-          {['minor-damage', 'major-damage', 'missing'].includes(r.condition) && <DropdownMenuItem onClick={() => showToast(tr('Dispute opened'))}>{tr('Open dispute')}</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => showToast(tr('Report closed'))}>{tr('Close report')}</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )},
-  ]
+  function openDetails(item: ReturnOperation) {
+    setSelected(item)
+    setDrawerOpen(true)
+  }
 
-  const filterBar = tab === 'reports'
-    ? <FilterBar search={{ placeholder: 'Search report…', value: search, onChange: setSearch }} selects={[{ label: 'Condition', value: conditionFilter, onChange: setConditionFilter, options: CONDITION_OPTIONS }]} />
-    : <FilterBar search={{ placeholder: 'Search booking…', value: search, onChange: setSearch }} />
+  const columns = [
+    {
+      key: 'bookingNo',
+      header: t.bookingNo,
+      render: (item: ReturnOperation) => (
+        <span className="font-[var(--font-poppins)] text-[13px] font-semibold">
+          {item.bookingNo}
+        </span>
+      ),
+    },
+    {
+      key: 'product',
+      header: t.product,
+      render: (item: ReturnOperation) => (
+        <span className="flex min-w-[180px] items-center gap-2.5">
+          <ProductThumb product={item.product} />
+          <span className="text-[13px]">{item.product.name}</span>
+        </span>
+      ),
+    },
+    { key: 'renter', header: t.renter },
+    { key: 'owner', header: t.owner },
+    {
+      key: 'dueDate',
+      header: t.dueDate,
+      render: (item: ReturnOperation) => (
+        <span className={cn('whitespace-nowrap text-[12.5px]', item.status === 'overdue' ? 'font-semibold text-gf-red' : 'text-gf-muted')}>
+          {dateFormatter.format(parseDate(item.dueDate))}
+        </span>
+      ),
+    },
+    {
+      key: 'method',
+      header: t.method,
+      render: (item: ReturnOperation) => item.method
+        ? bookingText.deliveryMethods[item.method]
+        : t.noData,
+    },
+    {
+      key: 'status',
+      header: t.status,
+      render: (item: ReturnOperation) => (
+        <OperationStatus label={t.statuses[item.status]} status={item.status} />
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (item: ReturnOperation) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t.details}
+            onClick={(event) => event.stopPropagation()}
+            className="cursor-pointer rounded-[8px] border-0 bg-transparent p-2 text-gf-brown-700"
+          >
+            <MoreHorizontal size={16} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end">
+            <DropdownMenuItem onClick={() => openDetails(item)}>
+              {t.details}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ]
 
   return (
     <div className="animate-fade-up">
-      <AdminPageHeader breadcrumb={['Admin', 'Operations', 'Returns']} title="Return & Condition Reports" />
-      <PillTabs items={TABS} value={activeTab} onChange={setActiveTab} />
-      {filterBar}
-      {tab === 'pending' ? (
-        <DataTable columns={PENDING_COLS} data={pending} loading={isLoading} empty={<EmptyState icon={PackageCheck} heading="No cameras due for return" sub="Reports appear here once submitted." />} />
+      <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
+      <OperationTabs
+        items={[
+          { value: 'pending', label: t.pendingTab },
+          { value: 'history', label: t.historyTab },
+        ]}
+        value={tab}
+        onChange={(value) => {
+          setTab(value)
+          setStatus('')
+          setPage(1)
+        }}
+      />
+      <FilterBar
+        search={{
+          placeholder: t.search,
+          value: search,
+          onChange: (value) => {
+            setSearch(value)
+            setPage(1)
+          },
+        }}
+        selects={[
+          {
+            label: t.status,
+            value: status,
+            options: statusOptions,
+            onChange: (value) => {
+              setStatus(value as ReturnOperationStatus | '')
+              setPage(1)
+            },
+          },
+        ]}
+      />
+
+      {isError ? (
+        <EmptyState icon={PackageCheck} heading={t.loadFailed} sub={t.noItemsSub} />
       ) : (
-        <DataTable columns={REPORT_COLS} data={reports} loading={isLoading} empty={<EmptyState icon={PackageCheck} heading="No condition reports submitted" sub="Reports appear here once submitted." />} />
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            loading={isLoading}
+            onRowClick={openDetails}
+            empty={<EmptyState icon={PackageCheck} heading={t.noItems} sub={t.noItemsSub} />}
+          />
+          {data && data.meta.total > 0 && (
+            <Pagination
+              {...data.meta}
+              onPageChange={setPage}
+              onLimitChange={(value) => {
+                setLimit(value)
+                setPage(1)
+              }}
+            />
+          )}
+        </>
       )}
 
-      <DetailDrawer open={drawerOpen} onOpenChange={setDrawerOpen} title={selected?.reportId ?? ''} subtitle={selected?.condition}
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selected ? `${t.bookingNo} ${selected.bookingNo}` : ''}
+        subtitle={selected ? t.statuses[selected.status] : undefined}
         footer={
-          selected && ['minor-damage', 'major-damage', 'missing'].includes(selected.condition) ? (
-            <div className="flex gap-[10px]">
-              <button className="flex-1 bg-gf-pink-500 text-gf-brown-900 border-0 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => showToast(tr('Dispute opened'))}>{tr('Open dispute')}</button>
-              <button className="flex-1 [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>{tr('Close without action')}</button>
-            </div>
-          ) : (
-            <button className="w-full [border:1.5px_solid_var(--gf-brown-300)] bg-transparent text-gf-brown-800 rounded-full [padding:11px_0] font-semibold cursor-pointer" onClick={() => setDrawerOpen(false)}>{tr('Close report')}</button>
-          )
+          selected ? (
+            <button
+              type="button"
+              onClick={() => router.push('/admin/bookings')}
+              className="w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-5 py-3 text-sm font-semibold text-gf-brown-900"
+            >
+              {t.viewBookings}
+            </button>
+          ) : undefined
         }
       >
         {selected && (
           <div>
-            <div className="flex justify-center [margin-bottom:16px]"><StatusBadge status={selected.condition} /></div>
-            {[{ label: 'Booking #', value: selected.bookingNo }, { label: 'Camera', value: selected.camera }, { label: 'Reported by', value: selected.reportedBy }, { label: 'Photos', value: `${selected.photos} photos` }, { label: 'Reported', value: selected.reported }].map(r => (
-              <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{tr(r.label)}</span>
-                <span className="font-medium">{r.value}</span>
+            <div className="mb-5 flex items-center gap-3">
+              <ProductThumb product={selected.product} large />
+              <div className="min-w-0">
+                <div className="font-semibold text-gf-brown-900">{selected.product.name}</div>
+                <div className="mt-1 text-xs text-gf-muted">{selected.bookingNo}</div>
               </div>
-            ))}
-            <div className="[margin-top:16px] grid [grid-template-columns:repeat(3,1fr)] gap-[8px]">
-              {Array.from({ length: selected.photos }).map((_, i) => (
-                <div key={i} className="bg-gf-pink-100 rounded-[14px] h-[80px] flex items-center justify-center text-[12px] text-gf-muted">{tr('Photo')} {i + 1}</div>
-              ))}
             </div>
+            <SectionTitle>{t.details}</SectionTitle>
+            <DetailRow label={t.renter} value={selected.renter} />
+            <DetailRow label={t.owner} value={selected.owner} />
+            <DetailRow label={t.dueDate} value={dateFormatter.format(parseDate(selected.dueDate))} />
+            <DetailRow label={t.method} value={selected.method ? bookingText.deliveryMethods[selected.method] : t.noData} />
+            <DetailRow label={t.provider} value={selected.providerName ?? t.noData} />
+            <DetailRow label={t.tracking} value={selected.trackingNumber ?? t.noData} />
+            {selected.note && <DetailRow label={t.note} value={selected.note} />}
+            {selected.renterReturnedAt && <DetailRow label={t.returnedAt} value={dateTimeFormatter.format(new Date(selected.renterReturnedAt))} />}
+            {selected.ownerReceivedAt && <DetailRow label={t.receivedAt} value={dateTimeFormatter.format(new Date(selected.ownerReceivedAt))} />}
+
+            {selected.damageDescription && (
+              <>
+                <SectionTitle>{t.damage}</SectionTitle>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-gf-brown-800">{selected.damageDescription}</p>
+              </>
+            )}
+
+            {evidence.length > 0 && (
+              <>
+                <SectionTitle>{t.evidence}</SectionTitle>
+                <div className="grid grid-cols-2 gap-3">
+                  {evidence.map((item, index) => (
+                    <button key={item.id} type="button" onClick={() => setEvidenceIndex(index)} className="cursor-pointer border-0 bg-transparent p-0 text-left">
+                      <span className="relative block aspect-video overflow-hidden rounded-[8px] border border-gf-line bg-white">
+                        <Image src={item.url} alt={item.label} fill sizes="280px" className="object-cover" />
+                      </span>
+                      <span className="mt-1.5 block text-xs text-gf-muted">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </DetailDrawer>
 
-      <ConfirmDialog open={markReturnedId !== null} onOpenChange={open => { if (!open) setMarkReturnedId(null) }} title="Mark camera as returned?" description="The booking will be updated to return-complete status." onConfirm={() => { if (markReturnedId !== null) markReturnedMutation.mutate(markReturnedId); setMarkReturnedId(null) }} />
+      <ProductMediaLightbox
+        media={evidence.map((item) => ({ id: item.id, mediaType: 'image' as const, url: item.url }))}
+        productName={selected?.product.name ?? t.evidence}
+        initialIndex={evidenceIndex}
+        onIndexChange={setEvidenceIndex}
+        onOpenChange={(open) => { if (!open) setEvidenceIndex(null) }}
+      />
     </div>
   )
+}
+
+function ProductThumb({ product, large = false }: { product: ReturnOperation['product']; large?: boolean }) {
+  return (
+    <span className={cn('relative shrink-0 overflow-hidden rounded-[6px] bg-gf-pink-100', large ? 'size-16' : 'size-10')}>
+      {product.imageUrl ? (
+        <Image src={product.imageUrl} alt={product.name} fill sizes={large ? '64px' : '40px'} className="object-cover" />
+      ) : (
+        <Camera className="absolute inset-0 m-auto text-gf-brown-300" size={large ? 25 : 18} />
+      )}
+    </span>
+  )
+}
+
+function OperationStatus({ label, status }: { label: string; status: ReturnOperationStatus }) {
+  const danger = status === 'overdue' || status === 'damageReported' || status === 'disputed'
+  const complete = status === 'completed'
+  return <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', danger ? 'bg-[#FAE0DA] text-gf-red' : complete ? 'bg-[#DFF2E0] text-gf-green' : 'bg-[#FEF3CD] text-gf-yellow')}>{label}</span>
+}
+
+function OperationTabs<T extends string>({ items, value, onChange }: { items: Array<{ value: T; label: string }>; value: T; onChange: (value: T) => void }) {
+  return <div className="mb-5 flex w-fit rounded-full bg-gf-pink-100 p-1.5">{items.map((item) => <button key={item.value} type="button" onClick={() => onChange(item.value)} className={cn('cursor-pointer rounded-full border-0 px-5 py-2.5 text-sm font-semibold', value === item.value ? 'bg-gf-pink-500 text-gf-brown-900' : 'bg-transparent text-gf-brown-700')}>{item.label}</button>)}</div>
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <h3 className="mb-3 mt-6 border-b border-gf-line pb-2 text-sm font-semibold text-gf-brown-900">{children}</h3>
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-start justify-between gap-4 border-b border-gf-line py-2.5 text-sm"><span className="shrink-0 text-gf-muted">{label}</span><span className="min-w-0 break-words text-right font-medium text-gf-brown-800">{value}</span></div>
+}
+
+function parseDate(value: string) {
+  return new Date(`${value}T00:00:00`)
 }

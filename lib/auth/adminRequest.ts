@@ -24,7 +24,7 @@ export async function getAdminRequestContext() {
       role: 'admin',
       status: 'active',
     },
-    select: { id: true },
+    select: { id: true, authUserId: true },
   })
   if (!user) return null
 

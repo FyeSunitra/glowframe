@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         : {}),
     }
 
-    const [payments, total, settings] = await Promise.all([
+    const [payments, total] = await Promise.all([
       prisma.payment.findMany({
         where,
         include: adminTransactionInclude,
@@ -60,12 +60,7 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       prisma.payment.count({ where }),
-      prisma.platformSetting.findUnique({
-        where: { id: 1 },
-        select: { platformFee: true },
-      }),
     ])
-    const platformFeeRate = Number(settings?.platformFee ?? 0)
     let storage:
       | ReturnType<typeof createSupabaseAuthClient>['storage']
       | null = null
@@ -95,7 +90,6 @@ export async function GET(request: NextRequest) {
       }
       return serializeAdminTransaction(
         payment,
-        platformFeeRate,
         signed?.data?.signedUrl ?? null,
       )
     }))

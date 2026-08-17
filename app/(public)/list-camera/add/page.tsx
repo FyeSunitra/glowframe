@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -53,6 +53,14 @@ const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime'])
 
 export default function AddProductPage() {
+  return (
+    <Suspense fallback={<AddProductFallback />}>
+      <AddProductContent />
+    </Suspense>
+  )
+}
+
+function AddProductContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = Number(searchParams.get('edit')) || null
@@ -966,6 +974,14 @@ export default function AddProductPage() {
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+function AddProductFallback() {
+  return (
+    <div className="py-16 text-center text-sm text-gf-muted">
+      Loading…
     </div>
   )
 }

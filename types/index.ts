@@ -109,20 +109,6 @@ export interface TxnPayState {
   agree: boolean;
 }
 
-export interface WalletTransaction {
-  id: number;
-  name: string;
-  kind?: 'payment';
-  date: string;
-  amt: number;
-  status: string;
-}
-
-export interface Wallet {
-  balance: number;
-  history: WalletTransaction[];
-}
-
 /* ── API response shapes ─────────────────────────────────────── */
 export type { ApiResponse } from './api';
 export type * from './adminSettings';

@@ -212,7 +212,7 @@ async function completeBooking(
   booking: {
     ownerId: bigint
     renterId: bigint
-    rentalFee: { toString(): string }
+    ownerReceivableAmount: { toString(): string }
     depositSnapshot: { toString(): string }
   },
 ) {
@@ -253,7 +253,7 @@ async function completeBooking(
     })
     await transaction.wallet.update({
       where: { id: ownerWallet.id },
-      data: { simulatedBalance: { increment: booking.rentalFee.toString() } },
+      data: { simulatedBalance: { increment: booking.ownerReceivableAmount.toString() } },
     })
     await transaction.wallet.update({
       where: { id: renterWallet.id },
@@ -267,8 +267,8 @@ async function completeBooking(
           walletId: ownerWallet.id,
           bookingId,
           entryType: WalletEntryType.rentalIncome,
-          amount: booking.rentalFee.toString(),
-          description: 'Rental income after completed return',
+          amount: booking.ownerReceivableAmount.toString(),
+          description: 'Owner receivable after platform fee and delivery allocation',
         },
         {
           walletId: renterWallet.id,

@@ -1,112 +1,157 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-import { Users, MoreHorizontal } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Camera, Check, MoreHorizontal, Users, X } from 'lucide-react'
+
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
-import { FilterBar } from '@/components/admin/shared/FilterBar'
-import { DataTable } from '@/components/admin/shared/DataTable'
-import { StatusBadge } from '@/components/admin/shared/StatusBadge'
-import { EmptyState } from '@/components/admin/shared/EmptyState'
-import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
-import { TransactionHistory } from '@/components/features/wallet/TransactionHistory'
-import { CameraGlyph } from '@/components/common/CameraGlyph'
+import { DataTable } from '@/components/admin/shared/DataTable'
+import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
+import { EmptyState } from '@/components/admin/shared/EmptyState'
+import { FilterBar } from '@/components/admin/shared/FilterBar'
+import { StatusBadge } from '@/components/admin/shared/StatusBadge'
+import { Pagination } from '@/components/common/Pagination'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { cn, money } from '@/lib/utils'
 import { useToast } from '@/hooks/useToast'
-import type { WalletTransaction } from '@/types'
+import { unwrapApiResponse } from '@/lib/api'
 import { getPageText } from '@/lib/menuI18n'
+import { cn, money } from '@/lib/utils'
+import { adminUserService } from '@/services/adminUsers'
 import { useAppStore } from '@/store/appStore'
+import type { AdminUser } from '@/types/adminUser'
 
-interface AdminUser {
-  id: number
-  displayName: string
-  fullName: string
-  email: string
-  phone: string
-  phoneVerified: boolean
-  emailVerified: boolean
-  idVerified: boolean
-  listings: number
-  bookings: number
-  joinedAt: string
-  status: string
-}
+function VerifiedChips({
+  user,
+  labels,
+}: {
+  user: AdminUser
+  labels: readonly [string, string, string]
+}) {
+  const chips = [
+    { label: labels[0], verified: user.phoneVerified },
+    { label: labels[1], verified: user.emailVerified },
+    { label: labels[2], verified: user.idVerified },
+  ]
 
-interface UserListing { id: number; name: string; color: string; price: number }
-
-const MOCK_USER_LISTINGS: UserListing[] = [
-  { id: 1, name: 'Canon EOS R5', color: '#F3C9D2', price: 900 },
-  { id: 2, name: 'Sony A7 IV', color: '#D9E7F2', price: 800 },
-]
-const MOCK_USER_BOOKINGS: WalletTransaction[] = [
-  { id: 1, name: 'Booking #123456-78', date: '12 Jul 2026', amt: 4500, status: 'paid' },
-  { id: 2, name: 'Booking #234567-89', date: '10 Jul 2026', amt: 2600, status: 'paid' },
-  { id: 3, name: 'Booking #345678-90', date: '8 Jul 2026', amt: 1800, status: 'pending' },
-]
-
-function VerifiedChips({ user, labels }: { user: AdminUser; labels: readonly [string, string, string] }) {
   return (
-    <span>
-      {[{ label: labels[0], verified: user.phoneVerified }, { label: labels[1], verified: user.emailVerified }, { label: labels[2], verified: user.idVerified }].map(c => (
-        <span key={c.label} className={cn(
-          'mr-1 rounded-full px-[7px] py-0.5 text-[11px] font-semibold',
-          c.verified ? 'bg-[#DFF2E0] text-gf-green' : 'bg-gf-pink-100 text-gf-muted',
-        )}>
-          {c.label} {c.verified ? '✓' : '✗'}
+    <span className="flex flex-wrap gap-1">
+      {chips.map((chip) => (
+        <span
+          key={chip.label}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            chip.verified
+              ? 'bg-[#DFF2E0] text-gf-green'
+              : 'bg-gf-pink-100 text-gf-muted',
+          )}
+        >
+          {chip.verified ? <Check size={11} /> : <X size={11} />}
+          {chip.label}
         </span>
       ))}
     </span>
   )
 }
 
-function UserAvatar({ name, size = 36 }: { name: string; size?: number }) {
-  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+function UserAvatar({
+  user,
+  size = 36,
+}: {
+  user: Pick<AdminUser, 'displayName' | 'profileImageUrl'>
+  size?: number
+}) {
+  const initials = user.displayName
+    .split(' ')
+    .map((word) => word[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
   return (
-    <div
+    <span
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-full bg-gf-brown-800 font-[var(--font-poppins)] font-bold text-gf-pink-100',
+        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gf-brown-800 font-[var(--font-poppins)] font-bold text-gf-pink-100',
         size > 40 ? 'text-xl' : 'text-[13px]',
       )}
       style={{ width: size, height: size }}
     >
-      {initials}
-    </div>
+      {user.profileImageUrl ? (
+        <Image
+          src={user.profileImageUrl}
+          alt={user.displayName}
+          fill
+          sizes={`${size}px`}
+          className="object-cover"
+        />
+      ) : (
+        initials
+      )}
+    </span>
   )
 }
 
 export default function UsersPage() {
-  const t = getPageText(useAppStore((s) => s.locale), 'adminUsers')
+  const locale = useAppStore((state) => state.locale)
+  const t = getPageText(locale, 'adminUsers')
+  const bookingText = getPageText(locale, 'myRentals')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [verificationFilter, setVerificationFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<
+    '' | 'active' | 'suspended'
+  >('')
+  const [verificationFilter, setVerificationFilter] = useState<
+    '' | 'verified' | 'unverified'
+  >('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
   const [selected, setSelected] = useState<AdminUser | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [suspendOpen, setSuspendOpen] = useState(false)
 
-  const filters = { search, status: statusFilter, verification: verificationFilter }
-
-  const { data: users = [], isLoading } = useQuery<AdminUser[]>({
+  const filters = {
+    search,
+    status: statusFilter,
+    verification: verificationFilter,
+    page,
+    limit,
+  }
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'users', filters],
-    queryFn: () => axios.get('/api/admin/users', { params: filters }).then(r => r.data.data),
+    queryFn: () => adminUserService.list(filters).then(unwrapApiResponse),
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+  const statusMutation = useMutation({
+    mutationFn: ({ id, suspended }: { id: number; suspended: boolean }) =>
+      adminUserService.setSuspended(id, suspended).then(unwrapApiResponse),
+    onSuccess: (updated) => {
+      setSelected(updated)
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      showToast(
+        updated.status === 'suspended'
+          ? t.suspendedToast
+          : t.unsuspendedToast,
+      )
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : t.updateFailed)
+    },
+  })
 
-  const suspendMutation = useMutation({
-    mutationFn: (id: number) => axios.patch(`/api/admin/users/${id}`, { action: 'suspend' }),
-    onSuccess: () => { invalidate(); showToast(t.suspendedToast) },
-  })
-  const unsuspendMutation = useMutation({
-    mutationFn: (id: number) => axios.patch(`/api/admin/users/${id}`, { action: 'unsuspend' }),
-    onSuccess: () => { invalidate(); showToast(t.unsuspendedToast) },
-  })
+  const users = data?.items ?? []
+  const verificationLabels = [t.phoneChip, t.emailChip, t.idChip] as const
+  const dateFormatter = new Intl.DateTimeFormat(
+    locale === 'th' ? 'th-TH' : 'en-GB',
+    { day: 'numeric', month: 'short', year: 'numeric' },
+  )
   const statusOptions = [
     { value: '', label: t.allStatuses },
     { value: 'active', label: t.active },
@@ -117,98 +162,288 @@ export default function UsersPage() {
     { value: 'verified', label: t.fullyVerified },
     { value: 'unverified', label: t.notFullyVerified },
   ]
-  const verificationLabels = [t.phoneChip, t.emailChip, t.idChip] as const
 
-  const COLUMNS = [
-    { key: 'user', header: t.user, render: (row: AdminUser) => (
-      <span className="flex items-center gap-[10px] cursor-pointer" onClick={() => { setSelected(row); setDrawerOpen(true) }}>
-        <UserAvatar name={row.displayName} />
-        <span>
-          <div className="font-semibold text-[13px]">{row.displayName}</div>
-          <div className="text-[12px] text-gf-muted">{row.email}</div>
+  function resetPage(setter: (value: string) => void, value: string) {
+    setter(value)
+    setPage(1)
+  }
+
+  function openUser(user: AdminUser) {
+    setSelected(user)
+    setDrawerOpen(true)
+  }
+
+  const columns = [
+    {
+      key: 'user',
+      header: t.user,
+      render: (user: AdminUser) => (
+        <span className="flex min-w-[210px] items-center gap-2.5">
+          <UserAvatar user={user} />
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] font-semibold">
+              {user.displayName}
+            </span>
+            <span className="block truncate text-xs text-gf-muted">
+              {user.email}
+            </span>
+          </span>
         </span>
-      </span>
-    )},
-    { key: 'verified', header: t.verified, render: (row: AdminUser) => <VerifiedChips user={row} labels={verificationLabels} /> },
-    { key: 'listings', header: t.listings, render: (row: AdminUser) => row.listings },
-    { key: 'bookings', header: t.bookings, render: (row: AdminUser) => row.bookings },
-    { key: 'joined', header: t.joined, render: (row: AdminUser) => <span className="text-[12.5px] text-gf-muted">{row.joinedAt}</span> },
-    { key: 'status', header: t.status, render: (row: AdminUser) => <StatusBadge status={row.status} /> },
-    { key: 'actions', header: '', render: (row: AdminUser) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger className="bg-transparent border-0 cursor-pointer [padding:4px_8px] rounded-[8px] text-gf-brown-700" onClick={(e) => e.stopPropagation()}>
-          <MoreHorizontal size={16} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuItem onClick={() => { setSelected(row); setDrawerOpen(true) }}>{t.view}</DropdownMenuItem>
-          {row.status === 'active'
-            ? <DropdownMenuItem variant="destructive" onClick={() => { setSelected(row); setSuspendOpen(true) }}>{t.suspend}</DropdownMenuItem>
-            : <DropdownMenuItem onClick={() => unsuspendMutation.mutate(row.id)}>{t.unsuspend}</DropdownMenuItem>
-          }
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )},
+      ),
+    },
+    {
+      key: 'verified',
+      header: t.verified,
+      render: (user: AdminUser) => (
+        <VerifiedChips user={user} labels={verificationLabels} />
+      ),
+    },
+    { key: 'listings', header: t.listings },
+    { key: 'bookings', header: t.bookings },
+    {
+      key: 'joinedAt',
+      header: t.joined,
+      render: (user: AdminUser) => (
+        <span className="whitespace-nowrap text-[12.5px] text-gf-muted">
+          {dateFormatter.format(new Date(user.joinedAt))}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: t.status,
+      render: (user: AdminUser) => <StatusBadge status={user.status} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (user: AdminUser) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t.view}
+            onClick={(event) => event.stopPropagation()}
+            className="cursor-pointer rounded-[8px] border-0 bg-transparent p-2 text-gf-brown-700"
+          >
+            <MoreHorizontal size={16} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end">
+            <DropdownMenuItem onClick={() => openUser(user)}>
+              {t.view}
+            </DropdownMenuItem>
+            {user.status === 'active' ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => {
+                  setSelected(user)
+                  setSuspendOpen(true)
+                }}
+              >
+                {t.suspend}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() =>
+                  statusMutation.mutate({ id: user.id, suspended: false })
+                }
+              >
+                {t.unsuspend}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ]
 
   return (
     <div className="animate-fade-up">
       <AdminPageHeader breadcrumb={['Admin', t.title]} title={t.title} />
       <FilterBar
-        search={{ placeholder: t.search, value: search, onChange: setSearch }}
+        search={{
+          placeholder: t.search,
+          value: search,
+          onChange: (value) => resetPage(setSearch, value),
+        }}
         selects={[
-          { label: t.status, value: statusFilter, onChange: setStatusFilter, options: statusOptions },
-          { label: t.verification, value: verificationFilter, onChange: setVerificationFilter, options: verificationOptions },
+          {
+            label: t.status,
+            value: statusFilter,
+            onChange: (value) => {
+              if (value === '' || value === 'active' || value === 'suspended') {
+                setStatusFilter(value)
+                setPage(1)
+              }
+            },
+            options: statusOptions,
+          },
+          {
+            label: t.verification,
+            value: verificationFilter,
+            onChange: (value) => {
+              if (
+                value === '' ||
+                value === 'verified' ||
+                value === 'unverified'
+              ) {
+                setVerificationFilter(value)
+                setPage(1)
+              }
+            },
+            options: verificationOptions,
+          },
         ]}
       />
-      <DataTable
-        columns={COLUMNS}
-        data={users}
-        loading={isLoading}
-        empty={<EmptyState icon={Users} heading={t.noUsers} sub={t.noUsersSub} />}
-      />
+
+      {isError ? (
+        <EmptyState icon={Users} heading={t.loadFailed} sub={t.noUsersSub} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={users}
+            loading={isLoading}
+            onRowClick={openUser}
+            empty={
+              <EmptyState
+                icon={Users}
+                heading={t.noUsers}
+                sub={t.noUsersSub}
+              />
+            }
+          />
+          {data && data.meta.total > 0 && (
+            <Pagination
+              {...data.meta}
+              onPageChange={setPage}
+              onLimitChange={(value) => {
+                setLimit(value)
+                setPage(1)
+              }}
+            />
+          )}
+        </>
+      )}
 
       <DetailDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         title={selected?.displayName ?? ''}
         subtitle={selected?.email}
-        footer={selected?.status === 'active' ? (
-          <button className="bg-gf-red text-white border-0 rounded-full [padding:11px_22px] font-semibold cursor-pointer w-full"
-            onClick={() => { setDrawerOpen(false); setSuspendOpen(true) }}>
-            {t.suspendAccount}
-          </button>
-        ) : undefined}
+        footer={
+          selected?.status === 'active' ? (
+            <button
+              type="button"
+              className="w-full cursor-pointer rounded-full border-0 bg-gf-red px-5 py-3 text-sm font-semibold text-white"
+              onClick={() => {
+                setDrawerOpen(false)
+                setSuspendOpen(true)
+              }}
+            >
+              {t.suspendAccount}
+            </button>
+          ) : selected ? (
+            <button
+              type="button"
+              disabled={statusMutation.isPending}
+              className="w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-5 py-3 text-sm font-semibold text-gf-brown-900 disabled:opacity-50"
+              onClick={() =>
+                statusMutation.mutate({ id: selected.id, suspended: false })
+              }
+            >
+              {t.unsuspend}
+            </button>
+          ) : undefined
+        }
       >
         {selected && (
           <div>
-            <div className="flex justify-center [margin-bottom:20px]">
-              <UserAvatar name={selected.displayName} size={60} />
+            <div className="mb-5 flex justify-center">
+              <UserAvatar user={selected} size={64} />
             </div>
-            <div className="flex justify-center [margin-bottom:20px] flex-wrap gap-[4px]">
-              <VerifiedChips user={selected} labels={verificationLabels} />
+            <div className="mb-5 flex justify-center">
+              <VerifiedChips
+                user={selected}
+                labels={verificationLabels}
+              />
             </div>
-            {[
-              { label: t.fullName, value: selected.fullName },
-              { label: t.email, value: selected.email },
-              { label: t.phone, value: selected.phone },
-              { label: t.joined, value: selected.joinedAt },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between [padding:10px_0] [border-bottom:1px_solid_var(--gf-line)] text-[13px]">
-                <span className="text-gf-muted">{r.label}</span>
-                <span className="font-medium">{r.value}</span>
-              </div>
-            ))}
-            <Separator className="[margin:20px_0_16px]" />
-            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-bottom:12px]">{t.activeListings}</div>
-            {MOCK_USER_LISTINGS.map(l => (
-              <div key={l.id} className="flex items-center gap-[10px] [padding:8px_0] [border-bottom:1px_solid_var(--gf-line)]">
-                <CameraGlyph size={28} color={l.color} />
-                <span className="text-[13px] font-medium flex-1">{l.name}</span>
-                <span className="text-[12.5px] text-gf-muted">{money(l.price)} THB/{t.perDay}</span>
-              </div>
-            ))}
-            <div className="text-[14px] font-semibold text-gf-brown-900 [margin-top:20px] [margin-bottom:12px]">{t.recentBookings}</div>
-            <TransactionHistory items={MOCK_USER_BOOKINGS} />
+
+            <DetailRow
+              label={t.fullName}
+              value={selected.fullName || t.notProvided}
+            />
+            <DetailRow label={t.email} value={selected.email} />
+            <DetailRow label={t.phone} value={selected.phone || t.notProvided} />
+            <DetailRow
+              label={t.joined}
+              value={dateFormatter.format(new Date(selected.joinedAt))}
+            />
+
+            <Separator className="my-5" />
+            <SectionTitle>{t.activeListings}</SectionTitle>
+            {selected.activeListings.length ? (
+              selected.activeListings.map((listing) => (
+                <div
+                  key={listing.id}
+                  className="flex items-center gap-2.5 border-b border-gf-line py-2.5"
+                >
+                  <span className="relative size-10 shrink-0 overflow-hidden rounded-[6px] bg-gf-pink-100">
+                    {listing.imageUrl ? (
+                      <Image
+                        src={listing.imageUrl}
+                        alt={listing.name}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <Camera
+                        size={18}
+                        className="absolute inset-0 m-auto text-gf-brown-300"
+                      />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                    {listing.name}
+                  </span>
+                  <span className="whitespace-nowrap text-xs text-gf-muted">
+                    {money(listing.pricePerDay)} THB/{t.perDay}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gf-muted">{t.noActiveListings}</p>
+            )}
+
+            <SectionTitle className="mt-5">{t.recentBookings}</SectionTitle>
+            {selected.recentBookings.length ? (
+              selected.recentBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="border-b border-gf-line py-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-semibold text-gf-brown-900">
+                        {booking.productName}
+                      </div>
+                      <div className="mt-1 text-xs text-gf-muted">
+                        {booking.bookingNo} · {dateFormatter.format(new Date(booking.createdAt))}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[13px] font-semibold text-gf-brown-900">
+                        {money(booking.total)} THB
+                      </div>
+                      <div className="mt-1 text-xs text-gf-muted">
+                        {bookingText.statuses[booking.status]}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gf-muted">{t.noRecentBookings}</p>
+            )}
           </div>
         )}
       </DetailDrawer>
@@ -219,8 +454,43 @@ export default function UsersPage() {
         title={t.suspendTitle}
         description={t.suspendDescription}
         destructive
-        onConfirm={() => { if (selected) suspendMutation.mutate(selected.id); setSuspendOpen(false) }}
+        onConfirm={() => {
+          if (selected) {
+            statusMutation.mutate({ id: selected.id, suspended: true })
+          }
+          setSuspendOpen(false)
+        }}
       />
     </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gf-line py-2.5 text-[13px]">
+      <span className="shrink-0 text-gf-muted">{label}</span>
+      <span className="min-w-0 break-words text-right font-medium text-gf-brown-800">
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function SectionTitle({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <h3
+      className={cn(
+        'mb-2.5 mt-0 text-sm font-semibold text-gf-brown-900',
+        className,
+      )}
+    >
+      {children}
+    </h3>
   )
 }

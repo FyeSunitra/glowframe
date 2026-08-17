@@ -126,7 +126,7 @@ export async function PATCH(
           update: {},
         }),
       ])
-      const ownerCredit = existing.booking.rentalFee.add(approvedDamage)
+      const ownerCredit = existing.booking.ownerReceivableAmount.add(approvedDamage)
       const renterRefund =
         existing.booking.depositSnapshot.sub(approvedDamage)
 
@@ -146,8 +146,8 @@ export async function PATCH(
           walletId: ownerWallet.id,
           bookingId: existing.bookingId,
           entryType: WalletEntryType.rentalIncome,
-          amount: existing.booking.rentalFee,
-          description: 'Rental income after damage claim resolution',
+          amount: existing.booking.ownerReceivableAmount,
+          description: 'Owner receivable after platform fee and delivery allocation',
         },
       ]
       if (approvedDamage.greaterThan(0)) {

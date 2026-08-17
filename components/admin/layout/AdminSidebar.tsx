@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Camera, CalendarCheck, CreditCard, Wallet, Settings, LogOut,
   ShieldCheck, Flag, Tag, Package,
-  Scale,
   FileText,
-  ClipboardList,
   Layers3,
   AlertTriangle,
-  Zap,
+  PackageCheck,
+  Truck,
+  BadgeDollarSign,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
@@ -33,6 +33,7 @@ const SECTIONS = [
       { href: '/admin/bookings',     labelKey: 'bookings',       icon: CalendarCheck },
       { href: '/admin/transactions', labelKey: 'transactions',   icon: CreditCard },
       { href: '/admin/payouts',      labelKey: 'payouts',        icon: Wallet },
+      { href: '/admin/financial/revenue', labelKey: 'revenue', icon: BadgeDollarSign },
     ],
   },
   {
@@ -69,6 +70,13 @@ const SECTIONS = [
       // { href: '/admin/legal/pdpa',  labelKey: 'PDPA Requests',   icon: Scale },
       { href: '/admin/legal/terms', labelKey: 'legal', icon: FileText },
       // { href: '/admin/legal/audit', labelKey: 'Audit Log',        icon: ClipboardList },
+    ],
+  },
+  {
+    labelKey: 'operations',
+    items: [
+      { href: '/admin/operations/returns', labelKey: 'returnOperations', icon: PackageCheck },
+      { href: '/admin/operations/delivery', labelKey: 'deliveryOperations', icon: Truck },
     ],
   },
   // Operations — out of scope

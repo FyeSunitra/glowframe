@@ -37,6 +37,16 @@ export async function POST(request: NextRequest) {
     }
 
     const databaseUser = await syncSupabaseUser(data.user)
+    if (databaseUser.status === 'suspended') {
+      await supabase.auth.signOut()
+      return NextResponse.json(
+        {
+          error: 'This account has been suspended. Please contact support.',
+          code: 'ACCOUNT_SUSPENDED',
+        },
+        { status: 403 },
+      )
+    }
     const response = NextResponse.json({
       data: {
         user: await toAppUser(databaseUser.id),

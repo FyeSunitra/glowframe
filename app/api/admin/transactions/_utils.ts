@@ -8,6 +8,7 @@ export const adminTransactionInclude = {
       deliveryFee: true,
       depositSnapshot: true,
       totalAmount: true,
+      platformFeeAmount: true,
     },
   },
   payer: {
@@ -27,7 +28,6 @@ export type AdminTransactionRow = Prisma.PaymentGetPayload<{
 
 export function serializeAdminTransaction(
   payment: AdminTransactionRow,
-  platformFeeRate: number,
   proofUrl: string | null = null,
 ) {
   return {
@@ -42,10 +42,7 @@ export function serializeAdminTransaction(
     deliveryFee: Number(payment.booking.deliveryFee),
     deposit: Number(payment.booking.depositSnapshot),
     total: Number(payment.submittedAmount ?? payment.booking.totalAmount),
-    platformFee:
-      Math.round(
-        Number(payment.booking.rentalFee) * platformFeeRate,
-      ) / 100,
+    platformFee: Number(payment.booking.platformFeeAmount),
     date: (payment.submittedAt ?? payment.createdAt).toISOString(),
     status: payment.status,
     proofFileName: payment.proofFileName,

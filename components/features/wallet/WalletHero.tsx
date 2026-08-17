@@ -1,51 +1,38 @@
-'use client';
+'use client'
 
-import { ChevronRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { money } from '@/lib/utils';
-import { getPageText } from '@/lib/menuI18n';
-import { useAppStore } from '@/store/appStore';
+import { ArrowDownToLine, Building2, ChevronRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+
+import { getPageText } from '@/lib/menuI18n'
+import { money } from '@/lib/utils'
+import { useAppStore } from '@/store/appStore'
 
 interface WalletHeroProps {
-  balance: number;
-  onWithdraw?: () => void;
+  balance: number
+  availableBalance?: number
+  pendingWithdrawal?: number
+  onWithdraw?: () => void
 }
 
-export function WalletHero({ balance, onWithdraw }: WalletHeroProps) {
-  const router = useRouter();
-  const locale = useAppStore((s) => s.locale);
-  const t = getPageText(locale, 'wallet');
-
+export function WalletHero({ balance, availableBalance = balance, pendingWithdrawal = 0, onWithdraw }: WalletHeroProps) {
+  const router = useRouter()
+  const t = getPageText(useAppStore((state) => state.locale), 'wallet')
   return (
-    <div className="bg-gf-brown-800 text-gf-pink-100 rounded-[22px] [padding:30px] relative overflow-hidden">
-      <div className="flex gap-[22px] text-[14px] text-gf-pink-300 [margin-bottom:6px]">
-        <span className="text-white font-bold [border-bottom:2px_solid_var(--gf-pink-500)] [padding-bottom:4px]">{t.totalBalance}</span>
-        <span
-          onClick={() => router.push('/wallet/income')}
-          className="cursor-pointer flex items-center gap-[4px]"
-        >
-          {t.transactions} <ChevronRight size={12} />
-        </span>
+    <section className="overflow-hidden rounded-[8px] bg-gf-brown-800 p-5 text-white sm:p-7">
+      <div className="text-sm text-gf-pink-300">{t.totalBalance}</div>
+      <div className="mt-2 font-[var(--font-poppins)] text-[36px] font-bold sm:text-[42px]">฿{money(balance)}</div>
+      <div className="mt-5 grid gap-3 border-t border-white/15 pt-4 sm:grid-cols-2">
+        <BalanceDetail label={t.availableBalanceLabel} value={availableBalance} />
+        <BalanceDetail label={t.pendingWithdrawalLabel} value={pendingWithdrawal} />
       </div>
-
-      <div className="text-[42px] font-bold [margin:14px_0_4px] font-[var(--font-poppins)]">
-        ฿ {money(balance)}
+      <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+        <button type="button" onClick={onWithdraw ?? (() => router.push('/wallet/withdraw'))} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-gf-pink-500 px-4 py-2.5 text-sm font-semibold text-gf-brown-900"><ArrowDownToLine size={16} />{t.withdraw}</button>
+        <button type="button" onClick={() => router.push('/wallet/bank')} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-white/25 bg-transparent px-4 py-2.5 text-sm font-semibold text-white"><Building2 size={16} />{t.manageAccounts}<ChevronRight size={14} /></button>
       </div>
+    </section>
+  )
+}
 
-      <button
-        onClick={onWithdraw ?? (() => router.push('/wallet/withdraw'))}
-        className="[margin-top:10px] inline-flex items-center gap-[8px] border-0 rounded-full [padding:9px_16px] font-semibold text-[13px] bg-gf-pink-500 text-gf-brown-900 cursor-pointer"
-      >
-        {t.withdraw}
-      </button>
-
-      <div
-        onClick={() => router.push('/wallet/income')}
-        className="flex justify-between items-center bg-[rgba(255,255,255,.08)] rounded-[14px] [padding:14px_16px] [margin-top:18px] text-[14px] cursor-pointer"
-      >
-        <span>{t.myIncome}</span>
-        <ChevronRight size={16} />
-      </div>
-    </div>
-  );
+function BalanceDetail({ label, value }: { label: string; value: number }) {
+  return <div><div className="text-xs text-gf-pink-300">{label}</div><div className="mt-1 font-[var(--font-poppins)] text-lg font-semibold">฿{money(value)}</div></div>
 }
