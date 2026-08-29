@@ -6,6 +6,11 @@ import type {
   PhotoboothFrameInput,
   PhotoboothUploadSignature,
 } from '@/types/photobooth'
+import type {
+  PhotoboothFrameAccess,
+  PhotoboothPayment,
+  PhotoboothQrPayment,
+} from '@/types/photoboothPayment'
 
 export const photoboothService = {
   async list(): Promise<ApiResponse<PhotoboothFrame[]>> {
@@ -27,6 +32,48 @@ export const photoboothService = {
       return ok(body.data)
     } catch (error) {
       return fail(error, 'Unable to load this photobooth frame.')
+    }
+  },
+
+  async createPayment(frameId: number): Promise<ApiResponse<PhotoboothQrPayment>> {
+    try {
+      const body = await api.post<ApiDataBody<PhotoboothQrPayment>>(
+        '/api/photobooth/payments',
+        { frameId },
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to create the payment QR.')
+    }
+  },
+
+  async getPaymentStatus(id: number): Promise<ApiResponse<PhotoboothPayment>> {
+    try {
+      const body = await api.get<ApiDataBody<PhotoboothPayment>>(
+        `/api/photobooth/payments/${id}/status`,
+        { cache: 'no-store' },
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to load payment status.')
+    }
+  },
+
+  async checkFrameAccess(
+    frameId: number | string,
+    paymentId?: string | null,
+  ): Promise<ApiResponse<PhotoboothFrameAccess>> {
+    try {
+      const body = await api.get<ApiDataBody<PhotoboothFrameAccess>>(
+        `/api/photobooth/frames/${frameId}/access`,
+        {
+          params: paymentId ? { paymentId } : undefined,
+          cache: 'no-store',
+        },
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Payment is required to use this frame.')
     }
   },
 }

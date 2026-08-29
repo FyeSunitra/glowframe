@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
     const qrExpiresAt = new Date(Date.now() + 10 * 60 * 1000)
     const inserted = await prisma.$queryRaw<PhotoboothPaymentRow[]>(Prisma.sql`
       INSERT INTO "photobooth_payments"
-        ("frame_id", "guest_session_id", "reference_id", "amount", "currency", "status", "qr_expires_at")
+        ("frame_id", "guest_session_id", "reference_id", "amount", "currency", "status", "qr_expires_at", "created_at", "updated_at")
       VALUES
-        (${frame.id}, ${session.id}::uuid, ${referenceId}, ${frame.price}, 'THB', 'pending', ${qrExpiresAt})
+        (${frame.id}, ${session.id}::uuid, ${referenceId}, ${frame.price}, 'THB', 'pending', ${qrExpiresAt}, NOW(), NOW())
       RETURNING "id", "frame_id", "guest_session_id", "reference_id", "beam_charge_id",
                 "amount", "currency", "status", "failure_code", "qr_expires_at",
                 "access_expires_at", "paid_at"

@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Camera,
   Check,
+  CreditCard,
   Download,
   Film,
   Images,
@@ -69,6 +70,7 @@ function PhotoboothStudio() {
   const t = getPageText(locale, 'photobooth')
   const searchParams = useSearchParams()
   const frameId = searchParams.get('frameId')
+  const paymentId = searchParams.get('paymentId')
   const frameStyle = parseFrameStyle(searchParams.get('frame'))
   const [phase, setPhase] = useState<StudioPhase>('setup')
   const [selectedPhotoCount, setPhotoCount] = useState(3)
@@ -98,6 +100,19 @@ function PhotoboothStudio() {
     queryKey: ['photobooth-frame', frameId],
     queryFn: async () => unwrapApiResponse(await photoboothService.get(frameId as string)),
     enabled: Boolean(frameId && /^\d+$/.test(frameId)),
+  })
+  const requiresPayment = Boolean(databaseFrame?.price && databaseFrame.price > 0)
+  const {
+    data: frameAccess,
+    isLoading: isAccessLoading,
+    isError: isAccessError,
+  } = useQuery({
+    queryKey: ['photobooth-frame-access', frameId, paymentId],
+    queryFn: async () => unwrapApiResponse(
+      await photoboothService.checkFrameAccess(frameId as string, paymentId),
+    ),
+    enabled: Boolean(databaseFrame && requiresPayment && paymentId),
+    retry: false,
   })
   const photoCount = databaseFrame?.frameCount ?? selectedPhotoCount
 
@@ -249,6 +264,15 @@ function PhotoboothStudio() {
   }
   if (frameId && (isFrameError || !databaseFrame)) {
     return <div className="py-24 text-center text-sm text-gf-muted">{t.noFrames}</div>
+  }
+  if (databaseFrame && requiresPayment && !paymentId) {
+    return <PaymentAccessRequired t={t} />
+  }
+  if (databaseFrame && requiresPayment && isAccessLoading) {
+    return <div className="py-24 text-center text-sm text-gf-muted">{t.accessChecking}</div>
+  }
+  if (databaseFrame && requiresPayment && (isAccessError || !frameAccess?.allowed)) {
+    return <PaymentAccessRequired t={t} />
   }
 
   return (
@@ -415,6 +439,33 @@ function PhotoboothStudio() {
         </section>
       )}
     </div>
+  )
+}
+
+function PaymentAccessRequired({
+  t,
+}: {
+  t: ReturnType<typeof getPageText<'photobooth'>>
+}) {
+  return (
+    <section className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
+      <span className="flex size-14 items-center justify-center rounded-full bg-gf-pink-100 text-gf-brown-800">
+        <CreditCard size={25} />
+      </span>
+      <h1 className="mb-0 mt-5 text-xl font-bold text-gf-brown-900 sm:text-2xl">
+        {t.accessRequiredTitle}
+      </h1>
+      <p className="mb-0 mt-2 max-w-md text-sm leading-6 text-gf-muted">
+        {t.accessRequiredDescription}
+      </p>
+      <Link
+        href="/photobooth"
+        className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-gf-pink-500 px-6 text-sm font-semibold text-gf-brown-900 no-underline hover:bg-gf-pink-600"
+      >
+        <ArrowLeft size={17} />
+        {t.backToPayment}
+      </Link>
+    </section>
   )
 }
 
