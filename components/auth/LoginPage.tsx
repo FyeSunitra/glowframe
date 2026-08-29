@@ -49,13 +49,17 @@ export default function LoginPage() {
     }
 
     login(result.data.user);
-    router.replace(result.data.user.role === 'admin' ? '/admin/dashboard' : '/for-rent');
+    router.replace(result.data.user.role === 'admin' ? '/admin/dashboard' : '/home');
   }
 
   return (
     <div className="grid w-full max-w-[1180px] grid-cols-2 items-center gap-10 max-[900px]:grid-cols-1">
       <div className="flex flex-col items-start gap-[6px]">
-        <BrandLogo variant="auth" priority />
+        <BrandLogo
+          variant="auth"
+          transparentBackground
+          priority
+        />
         {/* <p className="mt-[18px] max-w-[340px] text-[15px] text-gf-pink-300 opacity-75">
           {t.intro}
         </p> */}

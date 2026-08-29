@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { LogIn, LogOut, Search, UserRound } from 'lucide-react';
+import { LogIn, Search, UserRound } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { getMenuText } from '@/lib/menuI18n';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { authService } from '@/services/auth';
 
 export function Topbar() {
-  const router = useRouter();
   const locale = useAppStore((s) => s.locale);
   const setLocale = useAppStore((s) => s.setLocale);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
@@ -37,18 +35,16 @@ export function Topbar() {
     };
   }, [login, logout]);
 
-  async function handleLogout() {
-    await authService.logout();
-    logout();
-    router.replace('/for-rent');
-    router.refresh();
-  }
-
   return (
     <header className="sticky top-0 z-40 flex items-center gap-[22px] border-b border-gf-line bg-white px-7 py-3.5 max-[900px]:flex-wrap max-[900px]:gap-3 max-[900px]:px-4 max-[900px]:py-3">
       {/* Brand */}
-      <Link href="/for-rent" className="flex items-center gap-[10px] no-underline">
-        <BrandLogo variant="compact" priority />
+      <Link href="/home" className="flex items-center gap-[10px] no-underline">
+        <BrandLogo
+          variant="compact"
+          src="/images/glowframe-logo.PNG"
+          authBackground
+          priority
+        />
       </Link>
 
       {/* Search */}
@@ -81,15 +77,6 @@ export function Topbar() {
             >
               <UserRound size={17} />
             </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-gf-brown-300 bg-white text-gf-brown-800"
-              title={t.logout}
-              aria-label={t.logout}
-            >
-              <LogOut size={17} />
-            </button>
           </>
         )}
         <button

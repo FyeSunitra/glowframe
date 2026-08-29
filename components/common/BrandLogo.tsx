@@ -6,6 +6,9 @@ type BrandLogoVariant = 'compact' | 'auth' | 'about';
 interface BrandLogoProps {
   variant?: BrandLogoVariant;
   priority?: boolean;
+  src?: string;
+  transparentBackground?: boolean;
+  authBackground?: boolean;
 }
 
 const variantClasses: Record<BrandLogoVariant, string> = {
@@ -20,16 +23,24 @@ const imageClasses: Record<BrandLogoVariant, string> = {
   about: 'scale-[1.9]',
 };
 
-export function BrandLogo({ variant = 'compact', priority = false }: BrandLogoProps) {
+export function BrandLogo({
+  variant = 'compact',
+  priority = false,
+  src = '/images/Logo_PNG.PNG',
+  transparentBackground = false,
+  authBackground = false,
+}: BrandLogoProps) {
   return (
     <span
       className={cn(
-        'relative block shrink-0 overflow-hidden bg-[#5b2d20]',
+        'relative block shrink-0 overflow-hidden bg-transparent',
         variantClasses[variant],
+        authBackground && 'bg-gf-brown-800',
+        transparentBackground && 'rounded-none bg-transparent',
       )}
     >
       <Image
-        src="/images/glowframe-logo.jpg"
+        src={src}
         alt="GlowFrame"
         fill
         priority={priority}

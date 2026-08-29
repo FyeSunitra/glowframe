@@ -11,6 +11,7 @@ import {
   PackageCheck,
   Truck,
   BadgeDollarSign,
+  ImagePlus,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
@@ -109,6 +110,7 @@ const SECTIONS = [
       { href: '/admin/master/brands',      labelKey: 'cameraBrands',     icon: Tag     },
       { href: '/admin/master/categories',  labelKey: 'cameraCategories', icon: Layers3 },
       { href: '/admin/master/accessories', labelKey: 'accessories',      icon: Package },
+      { href: '/admin/photobooth',         labelKey: 'photoboothFrames', icon: ImagePlus },
     ],
   },
   {

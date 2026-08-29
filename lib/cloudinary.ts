@@ -2,6 +2,7 @@ import { v2 as cloudinary } from 'cloudinary'
 
 export const PRODUCT_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 export const PRODUCT_VIDEO_MAX_BYTES = 100 * 1024 * 1024
+export const PHOTOBOOTH_FRAME_MAX_BYTES = 15 * 1024 * 1024
 
 export function getCloudinary() {
   const cloudName =

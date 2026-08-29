@@ -18,7 +18,12 @@ export function AdminTopbar() {
     <header className="sticky top-0 z-40 flex items-center gap-[22px] border-b border-gf-line bg-white px-7 py-3.5 max-[900px]:flex-wrap max-[900px]:gap-3 max-[900px]:px-4 max-[900px]:py-3">
       {/* Brand */}
       <Link href="/admin/dashboard" className="flex items-center gap-[10px] no-underline">
-        <BrandLogo variant="compact" priority />
+        <BrandLogo
+          variant="compact"
+          src="/images/glowframe-logo.PNG"
+          authBackground
+          priority
+        />
         <span className="font-[var(--font-poppins)] font-bold text-[18px] text-gf-brown-900">{t.adminBrand}</span>
       </Link>
 

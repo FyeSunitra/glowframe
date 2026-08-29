@@ -1,4 +1,7 @@
-import type { PhotoboothFrameStyle } from '@/types/photobooth'
+import type { PhotoboothFrame, PhotoboothFrameStyle } from '@/types/photobooth'
+
+const MAX_PHOTO_OUTPUT_SIDE = 4096
+const MAX_GIF_OUTPUT_SIDE = 900
 
 export function captureVideoFrame(video: HTMLVideoElement) {
   const canvas = document.createElement('canvas')
@@ -111,6 +114,95 @@ export async function createAnimatedGif(
   return new Blob([copy.buffer], { type: 'image/gif' })
 }
 
+export async function createFramedPhoto(
+  sources: string[],
+  frame: PhotoboothFrame,
+) {
+  const [images, overlay] = await Promise.all([
+    Promise.all(sources.map(loadImage)),
+    loadImage(frame.overlayUrl),
+  ])
+  const scale = Math.min(
+    1,
+    MAX_PHOTO_OUTPUT_SIDE / Math.max(frame.canvasWidth, frame.canvasHeight),
+  )
+  const width = Math.max(1, Math.round(frame.canvasWidth * scale))
+  const height = Math.max(1, Math.round(frame.canvasHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = requiredContext(canvas)
+
+  drawFrameComposition(context, width, height, images, overlay, frame, 0)
+  return canvasToBlob(canvas, 'image/png')
+}
+
+export async function createFramedGif(
+  sources: string[],
+  frame: PhotoboothFrame,
+) {
+  const [{ GIFEncoder, quantize, applyPalette }, images, overlay] = await Promise.all([
+    import('gifenc'),
+    Promise.all(sources.map(loadImage)),
+    loadImage(frame.overlayUrl),
+  ])
+  const scale = Math.min(
+    1,
+    MAX_GIF_OUTPUT_SIDE / Math.max(frame.canvasWidth, frame.canvasHeight),
+  )
+  const width = Math.max(1, Math.round(frame.canvasWidth * scale))
+  const height = Math.max(1, Math.round(frame.canvasHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = requiredContext(canvas, true)
+  const encoder = GIFEncoder()
+
+  images.forEach((_, frameIndex) => {
+    context.clearRect(0, 0, width, height)
+    drawFrameComposition(context, width, height, images, overlay, frame, frameIndex)
+    const rgba = context.getImageData(0, 0, width, height).data
+    const palette = quantize(rgba, 256, { format: 'rgb444' })
+    const indexed = applyPalette(rgba, palette, 'rgb444')
+    encoder.writeFrame(indexed, width, height, {
+      palette,
+      delay: 900,
+      repeat: 0,
+    })
+  })
+
+  encoder.finish()
+  const bytes = encoder.bytes()
+  const copy = new Uint8Array(bytes.length)
+  copy.set(bytes)
+  return new Blob([copy.buffer], { type: 'image/gif' })
+}
+
+function drawFrameComposition(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  images: HTMLImageElement[],
+  overlay: HTMLImageElement,
+  frame: PhotoboothFrame,
+  offset: number,
+) {
+  context.clearRect(0, 0, width, height)
+  frame.slots.forEach((slot, slotIndex) => {
+    const image = images[(slotIndex + offset) % images.length]
+    if (!image) return
+    drawImageCover(
+      context,
+      image,
+      Math.round(slot.x * width),
+      Math.round(slot.y * height),
+      Math.ceil(slot.width * width),
+      Math.ceil(slot.height * height),
+    )
+  })
+  context.drawImage(overlay, 0, 0, width, height)
+}
+
 function requiredContext(canvas: HTMLCanvasElement, readOften = false) {
   const context = canvas.getContext('2d', { willReadFrequently: readOften })
   if (!context) throw new Error('Canvas is unavailable.')
@@ -198,6 +290,7 @@ function drawCaption(
 function loadImage(source: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
+    if (/^https?:\/\//.test(source)) image.crossOrigin = 'anonymous'
     image.onload = () => resolve(image)
     image.onerror = () => reject(new Error('Photo could not be loaded.'))
     image.src = source

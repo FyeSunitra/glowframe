@@ -10,9 +10,6 @@ import { prisma } from '@/lib/prisma'
 
 export async function proxy(request: NextRequest) {
   const isApiRequest = request.nextUrl.pathname.startsWith('/api/')
-  const isBookingPage = /^\/for-rent\/[^/]+\/booking\/?$/.test(
-    request.nextUrl.pathname,
-  )
   const isAdminRequest =
     request.nextUrl.pathname.startsWith('/admin') ||
     request.nextUrl.pathname.startsWith('/api/admin')
@@ -28,9 +25,7 @@ export async function proxy(request: NextRequest) {
       return response
     }
 
-    const response = NextResponse.redirect(
-      new URL(isBookingPage ? '/log-in' : '/for-rent', request.url),
-    )
+    const response = NextResponse.redirect(new URL('/log-in', request.url))
     clearSessionCookies(response)
     return response
   }
@@ -59,7 +54,7 @@ export async function proxy(request: NextRequest) {
       clearSessionCookies(response)
       return response
     }
-    const response = NextResponse.redirect(new URL('/for-rent', request.url))
+    const response = NextResponse.redirect(new URL('/home', request.url))
     clearSessionCookies(response)
     return response
   }
@@ -69,7 +64,7 @@ export async function proxy(request: NextRequest) {
       if (isApiRequest) {
         return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
       }
-      return NextResponse.redirect(new URL('/for-rent', request.url))
+      return NextResponse.redirect(new URL('/home', request.url))
     }
   }
 
@@ -80,7 +75,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/home/:path*',
     '/account/:path*',
     '/rentals/:path*',
     '/wallet/:path*',

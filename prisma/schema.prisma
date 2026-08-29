@@ -143,6 +143,16 @@ enum PolicyDocumentStatus {
   @@map("policy_document_status")
 }
 
+enum PhotoboothPaymentStatus {
+  pending
+  succeeded
+  failed
+  expired
+  cancelled
+
+  @@map("photobooth_payment_status")
+}
+
 model User {
   id                   BigInt     @id @default(autoincrement())
   authUserId           String?    @unique @map("auth_user_id") @db.Uuid
@@ -177,6 +187,7 @@ model User {
   reviews               Review[]
   notifications         Notification[]
   policyAcceptances     UserPolicyAcceptance[]
+  photoboothPayments    PhotoboothPayment[]
 
   @@index([email])
   @@index([authUserId])
@@ -734,4 +745,59 @@ model UserPolicyAcceptance {
   @@index([userId])
   @@index([policyDocumentId])
   @@map("user_policy_acceptances")
+}
+
+model PhotoboothFrame {
+  id               BigInt   @id @default(autoincrement())
+  nameTh           String   @map("name_th") @db.VarChar(160)
+  nameEn           String   @map("name_en") @db.VarChar(160)
+  descriptionTh    String?  @map("description_th")
+  descriptionEn    String?  @map("description_en")
+  canvasWidth      Int      @map("canvas_width")
+  canvasHeight     Int      @map("canvas_height")
+  aspectRatioLabel String?  @map("aspect_ratio_label") @db.VarChar(20)
+  frameCount       Int      @map("frame_count")
+  slotConfig       Json     @map("slot_config")
+  overlayUrl       String   @map("overlay_url")
+  overlayPublicId  String   @unique @map("overlay_public_id")
+  originalFileName String?  @map("original_file_name") @db.VarChar(255)
+  price            Decimal? @db.Decimal(10, 2)
+  isActive         Boolean  @default(true) @map("is_active")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  payments PhotoboothPayment[]
+
+  @@index([isActive, sortOrder])
+  @@index([createdAt])
+  @@map("photobooth_frames")
+}
+
+model PhotoboothPayment {
+  id              BigInt                   @id @default(autoincrement())
+  frameId         BigInt                   @map("frame_id")
+  userId          BigInt?                  @map("user_id")
+  guestSessionId  String                   @map("guest_session_id") @db.Uuid
+  referenceId     String                   @unique @map("reference_id") @db.VarChar(100)
+  beamChargeId    String?                  @unique @map("beam_charge_id") @db.VarChar(100)
+  amount          Decimal                  @db.Decimal(10, 2)
+  currency        String                   @default("THB") @db.VarChar(3)
+  status          PhotoboothPaymentStatus  @default(pending)
+  failureCode     String?                  @map("failure_code") @db.VarChar(120)
+  qrExpiresAt     DateTime?                @map("qr_expires_at") @db.Timestamptz
+  accessExpiresAt DateTime?                @map("access_expires_at") @db.Timestamptz
+  paidAt          DateTime?                @map("paid_at") @db.Timestamptz
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  frame PhotoboothFrame @relation(fields: [frameId], references: [id], onDelete: Restrict)
+  user  User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([frameId, status])
+  @@index([guestSessionId, status])
+  @@index([userId])
+  @@index([qrExpiresAt])
+  @@index([accessExpiresAt])
+  @@map("photobooth_payments")
 }

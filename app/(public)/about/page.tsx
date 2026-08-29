@@ -13,7 +13,11 @@ export default function AboutPage() {
       <Breadcrumb items={['About GlowFrame']} />
       <div className="grid grid-cols-1 items-start gap-6 rounded-[22px] bg-white p-5 [box-shadow:var(--gf-shadow)] sm:p-7 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8">
         <div className="flex justify-center lg:sticky lg:top-6">
-          <BrandLogo variant="about" />
+          <BrandLogo
+            variant="about"
+            src="/images/glowframe-logo.PNG"
+            authBackground
+          />
         </div>
 
         <div className="min-w-0">
