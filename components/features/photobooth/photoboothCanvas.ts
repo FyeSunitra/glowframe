@@ -1,7 +1,7 @@
 import type { PhotoboothFrame, PhotoboothFrameStyle } from '@/types/photobooth'
 
 const MAX_PHOTO_OUTPUT_SIDE = 4096
-const MAX_GIF_OUTPUT_SIDE = 900
+const MAX_GIF_OUTPUT_SIDE = 960
 
 export function captureVideoFrame(video: HTMLVideoElement) {
   const canvas = document.createElement('canvas')
@@ -57,49 +57,35 @@ export async function createPhotoStrip(
 
 export async function createAnimatedGif(
   sources: string[],
-  frameColor: string,
-  style: PhotoboothFrameStyle,
 ) {
   const [{ GIFEncoder, quantize, applyPalette }, images] = await Promise.all([
     import('gifenc'),
     Promise.all(sources.map(loadImage)),
   ])
-  const width = 480
-  const height = 620
+  const firstImage = images[0]
+  if (!firstImage) throw new Error('At least one photo is required to create a GIF.')
+
+  const scale = Math.min(
+    1,
+    MAX_GIF_OUTPUT_SIDE / Math.max(firstImage.naturalWidth, firstImage.naturalHeight),
+  )
+  const width = Math.max(1, Math.round(firstImage.naturalWidth * scale))
+  const height = Math.max(1, Math.round(firstImage.naturalHeight * scale))
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = requiredContext(canvas, true)
   const encoder = GIFEncoder()
 
-  images.forEach((image, index) => {
-    context.fillStyle = frameColor
-    context.fillRect(0, 0, width, height)
-    if (style === 'film') drawFilmRails(context, width, height)
-
-    const sidePadding = style === 'film' ? 50 : style === 'minimal' ? 22 : 34
-    const photoWidth = width - sidePadding * 2
-    const photoHeight = Math.round(photoWidth * 0.95)
-    const y = Math.round((height - photoHeight) / 2) - 16
-    drawImageCover(context, image, sidePadding, y, photoWidth, photoHeight)
-
-    if (style === 'minimal') {
-      context.strokeStyle = 'rgba(76,54,48,0.18)'
-      context.lineWidth = 2
-      context.strokeRect(sidePadding, y, photoWidth, photoHeight)
-    }
-
-    drawCaption(
-      context,
-      width,
-      height,
-      frameColor,
-      `GlowFrame  ${index + 1}/${images.length}`,
-    )
-
-    const rgba = context.getImageData(0, 0, width, height).data
-    const palette = quantize(rgba, 256, { format: 'rgb444' })
-    const indexed = applyPalette(rgba, palette, 'rgb444')
+  const renderedFrames = images.map((image) => {
+    context.clearRect(0, 0, width, height)
+    drawImageCover(context, image, 0, 0, width, height)
+    return new Uint8ClampedArray(context.getImageData(0, 0, width, height).data)
+  })
+  renderedFrames.forEach((rgba) => {
+    // Each shot gets its own 256-color palette for better photo color fidelity.
+    const palette = quantize(rgba, 256, { format: 'rgb565' })
+    const indexed = applyPalette(rgba, palette, 'rgb565')
     encoder.writeFrame(indexed, width, height, {
       palette,
       delay: 900,
@@ -135,47 +121,6 @@ export async function createFramedPhoto(
 
   drawFrameComposition(context, width, height, images, overlay, frame, 0)
   return canvasToBlob(canvas, 'image/png')
-}
-
-export async function createFramedGif(
-  sources: string[],
-  frame: PhotoboothFrame,
-) {
-  const [{ GIFEncoder, quantize, applyPalette }, images, overlay] = await Promise.all([
-    import('gifenc'),
-    Promise.all(sources.map(loadImage)),
-    loadImage(frame.overlayUrl),
-  ])
-  const scale = Math.min(
-    1,
-    MAX_GIF_OUTPUT_SIDE / Math.max(frame.canvasWidth, frame.canvasHeight),
-  )
-  const width = Math.max(1, Math.round(frame.canvasWidth * scale))
-  const height = Math.max(1, Math.round(frame.canvasHeight * scale))
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const context = requiredContext(canvas, true)
-  const encoder = GIFEncoder()
-
-  images.forEach((_, frameIndex) => {
-    context.clearRect(0, 0, width, height)
-    drawFrameComposition(context, width, height, images, overlay, frame, frameIndex)
-    const rgba = context.getImageData(0, 0, width, height).data
-    const palette = quantize(rgba, 256, { format: 'rgb444' })
-    const indexed = applyPalette(rgba, palette, 'rgb444')
-    encoder.writeFrame(indexed, width, height, {
-      palette,
-      delay: 900,
-      repeat: 0,
-    })
-  })
-
-  encoder.finish()
-  const bytes = encoder.bytes()
-  const copy = new Uint8Array(bytes.length)
-  copy.set(bytes)
-  return new Blob([copy.buffer], { type: 'image/gif' })
 }
 
 function drawFrameComposition(

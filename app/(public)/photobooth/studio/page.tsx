@@ -26,7 +26,6 @@ import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import {
   captureVideoFrame,
   createAnimatedGif,
-  createFramedGif,
   createFramedPhoto,
   createPhotoStrip,
 } from '@/components/features/photobooth/photoboothCanvas'
@@ -40,10 +39,10 @@ import { useAppStore } from '@/store/appStore'
 import type {
   PhotoboothFrameStyle,
   PhotoboothFrame,
-  PhotoboothOutputType,
 } from '@/types/photobooth'
 
 type StudioPhase = 'setup' | 'camera' | 'result'
+type ResultView = 'photo' | 'gif'
 
 const COUNTDOWN_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10] as const
 type CountdownSeconds = (typeof COUNTDOWN_OPTIONS)[number]
@@ -77,7 +76,7 @@ function PhotoboothStudio() {
   const [frameColor, setFrameColor] = useState(() => defaultFrameColor(frameStyle))
   const [countdownSeconds, setCountdownSeconds] = useState<CountdownSeconds>(8)
   const [noticeAccepted, setNoticeAccepted] = useState(false)
-  const [outputType, setOutputType] = useState<PhotoboothOutputType>('photo')
+  const [resultView, setResultView] = useState<ResultView>('photo')
   const [countdown, setCountdown] = useState<number | null>(null)
   const [shotIndex, setShotIndex] = useState(0)
   const [capturedImages, setCapturedImages] = useState<string[]>([])
@@ -114,7 +113,11 @@ function PhotoboothStudio() {
     enabled: Boolean(databaseFrame && requiresPayment && paymentId),
     retry: false,
   })
-  const photoCount = databaseFrame?.frameCount ?? selectedPhotoCount
+  const photoCount = databaseFrame
+    ? databaseFrame.frameCount === 1
+      ? selectedPhotoCount
+      : databaseFrame.frameCount
+    : selectedPhotoCount
 
   useEffect(() => {
     if (phase !== 'camera' || !videoRef.current || !streamRef.current) return
@@ -148,6 +151,7 @@ function PhotoboothStudio() {
     setCapturedImages([])
     setShotIndex(0)
     setIsCameraReady(false)
+    setResultView('photo')
 
     if (!window.isSecureContext) {
       setCameraError(t.secureContext)
@@ -212,13 +216,9 @@ function PhotoboothStudio() {
       if (captureSessionRef.current !== session) return
       setPhotoUrl(URL.createObjectURL(photoBlob))
 
-      if (outputType === 'gif') {
-        const gifBlob = databaseFrame
-          ? await createFramedGif(shots, databaseFrame)
-          : await createAnimatedGif(shots, frameColor, frameStyle)
-        if (captureSessionRef.current !== session) return
-        setGifUrl(URL.createObjectURL(gifBlob))
-      }
+      const gifBlob = await createAnimatedGif(shots)
+      if (captureSessionRef.current !== session) return
+      setGifUrl(URL.createObjectURL(gifBlob))
     } catch (error) {
       console.error('Failed to create photobooth result', error)
       setResultError(t.resultFailed)
@@ -246,6 +246,7 @@ function PhotoboothStudio() {
     setPhase('setup')
     setCapturedImages([])
     setResultError(null)
+    setResultView('photo')
   }
 
   function clearResults() {
@@ -294,19 +295,17 @@ function PhotoboothStudio() {
           photoCount={photoCount}
           frameColor={frameColor}
           countdownSeconds={countdownSeconds}
-          outputType={outputType}
           cameraError={cameraError}
           onPhotoCountChange={setPhotoCount}
           onFrameColorChange={setFrameColor}
           onCountdownChange={setCountdownSeconds}
-          onOutputTypeChange={setOutputType}
           onOpenCamera={() => void openCamera()}
         />
       )}
 
       {phase === 'camera' && (
         <section>
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="mx-auto mb-4 flex w-full max-w-[920px] flex-wrap items-end justify-between gap-x-5 gap-y-2 sm:mb-5">
             <div>
               <h1 className="m-0 text-2xl font-bold text-gf-brown-900">{t.cameraTitle}</h1>
               <p className="mb-0 mt-1.5 text-sm text-gf-muted">{t.cameraReady}</p>
@@ -316,36 +315,45 @@ function PhotoboothStudio() {
             </div>
           </div>
 
-          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="relative mx-auto aspect-[4/3] w-full max-w-[920px] overflow-hidden rounded-[8px] bg-gf-brown-900 shadow-[var(--gf-shadow)]">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                onLoadedMetadata={() => setIsCameraReady(true)}
-                className="h-full w-full -scale-x-100 object-cover"
-              />
-              <div className="pointer-events-none absolute inset-5 border border-white/35" />
-              {countdown !== null && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/28 text-white">
-                  <span className="text-[clamp(72px,16vw,150px)] font-bold leading-none">{countdown}</span>
-                  <span className="mt-3 text-sm font-semibold">{t.lookAtCamera}</span>
-                </div>
-              )}
-              {flash && <div className="absolute inset-0 bg-white" />}
-              {!isCameraReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gf-brown-900 text-sm text-white/75">
-                  {t.cameraPermission}
-                </div>
-              )}
+          <div className="mx-auto w-full max-w-[920px]">
+            <button
+              type="button"
+              onClick={cancelCamera}
+              className="mb-2.5 inline-flex items-center gap-1.5 border-0 bg-transparent p-0 text-sm font-semibold text-gf-brown-700 hover:text-gf-brown-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:mb-3"
+            >
+              <ArrowLeft size={18} />
+              {t.cancel}
+            </button>
+
+            <CameraPreviewStage
+              t={t}
+              videoRef={videoRef}
+              countdown={countdown}
+              flash={flash}
+              isCameraReady={isCameraReady}
+              onCameraReady={() => setIsCameraReady(true)}
+            />
+
+            <div className="mt-4 flex items-center justify-center sm:mt-5">
+              <button
+                type="button"
+                onClick={() => void startCapture()}
+                disabled={!isCameraReady || isCapturing}
+                className="group flex size-20 items-center justify-center rounded-full border-2 border-gf-brown-700 bg-white p-1.5 shadow-[0_8px_24px_rgba(76,54,48,0.2)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gf-pink-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+                aria-label={isCapturing ? `${t.shotProgress} ${shotIndex + 1}` : t.startCapture}
+                title={t.startCapture}
+              >
+                <span className="flex size-full items-center justify-center rounded-full bg-gf-pink-500 text-gf-brown-900 transition-colors group-hover:bg-gf-pink-600">
+                  <Camera size={27} strokeWidth={2.2} />
+                </span>
+              </button>
             </div>
 
-            <aside className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-1">
+            <aside className="mt-3 flex min-h-16 flex-wrap items-start justify-center gap-2 sm:mt-4">
               {Array.from({ length: photoCount }, (_, index) => (
                 <div
                   key={index}
-                  className="relative aspect-[4/3] overflow-hidden rounded-[6px] border border-gf-line bg-white"
+                  className="relative aspect-[4/3] w-16 overflow-hidden rounded-[6px] border border-gf-line bg-white sm:w-20"
                   style={
                     capturedImages[index]
                       ? {
@@ -362,22 +370,11 @@ function PhotoboothStudio() {
                     </span>
                   )}
                   {capturedImages[index] && (
-                    <Check className="absolute right-1.5 top-1.5 rounded-full bg-white p-1 text-emerald-600" size={24} />
+                    <Check className="absolute right-1 top-1 rounded-full bg-white p-0.5 text-emerald-600 sm:right-1.5 sm:top-1.5 sm:p-1" size={22} />
                   )}
                 </div>
               ))}
             </aside>
-          </div>
-
-          <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <Button variant="outline" onClick={cancelCamera}>
-              <ArrowLeft />
-              {t.cancel}
-            </Button>
-            <Button onClick={() => void startCapture()} disabled={!isCameraReady || isCapturing}>
-              <Camera />
-              {isCapturing ? `${t.shotProgress} ${shotIndex + 1}` : t.startCapture}
-            </Button>
           </div>
         </section>
       )}
@@ -399,46 +396,149 @@ function PhotoboothStudio() {
               {resultError}
             </div>
           ) : (
-            <div className="mx-auto grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="flex min-h-[520px] items-center justify-center overflow-hidden rounded-[8px] bg-white p-4 shadow-[var(--gf-shadow-sm)] sm:p-7">
-                <div
-                  role="img"
-                  aria-label={t.resultTitle}
-                  className="h-[min(66vh,720px)] w-full bg-contain bg-center bg-no-repeat"
-                  style={{ backgroundImage: `url(${outputType === 'gif' ? gifUrl : photoUrl})` }}
-                />
+            <div className="mx-auto max-w-5xl">
+              <div className="mb-5 flex justify-center">
+                <div className="inline-grid grid-cols-2 rounded-full border border-gf-line bg-white p-1">
+                  <button
+                    type="button"
+                    onClick={() => setResultView('photo')}
+                    className={cn(
+                      'flex min-h-10 items-center justify-center gap-2 rounded-full border-0 px-5 text-sm font-semibold transition-colors',
+                      resultView === 'photo'
+                        ? 'bg-gf-pink-500 text-gf-brown-900'
+                        : 'bg-transparent text-gf-brown-700 hover:bg-gf-pink-100',
+                    )}
+                    aria-pressed={resultView === 'photo'}
+                  >
+                    <Images size={16} />
+                    {t.stillPhoto}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResultView('gif')}
+                    disabled={!gifUrl}
+                    className={cn(
+                      'flex min-h-10 items-center justify-center gap-2 rounded-full border-0 px-5 text-sm font-semibold transition-colors disabled:opacity-40',
+                      resultView === 'gif'
+                        ? 'bg-gf-pink-500 text-gf-brown-900'
+                        : 'bg-transparent text-gf-brown-700 hover:bg-gf-pink-100',
+                    )}
+                    aria-pressed={resultView === 'gif'}
+                  >
+                    <Film size={16} />
+                    {t.animatedGif}
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {outputType === 'gif' && gifUrl && (
+              <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-[8px] bg-white p-4 shadow-[var(--gf-shadow-sm)] sm:min-h-[520px] sm:p-7">
+                  <div
+                    role="img"
+                    aria-label={resultView === 'gif' ? t.animatedGif : t.resultTitle}
+                    className="h-[min(66vh,720px)] w-full bg-contain bg-center bg-no-repeat"
+                    style={{ backgroundImage: `url(${resultView === 'gif' ? gifUrl : photoUrl})` }}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {gifUrl && (
                   <DownloadLink href={gifUrl} fileName="glowframe-photobooth.gif">
                     <Film />
                     {t.downloadGif}
                   </DownloadLink>
-                )}
-                {photoUrl && (
-                  <DownloadLink href={photoUrl} fileName="glowframe-photobooth.png" secondary={outputType === 'gif'}>
-                    <Download />
-                    {outputType === 'gif' ? t.downloadStillToo : t.downloadPhoto}
-                  </DownloadLink>
-                )}
-                <Button className="w-full" variant="outline" onClick={retake}>
-                  <RefreshCcw />
-                  {t.retake}
-                </Button>
-                <Link
-                  href="/photobooth"
-                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-gf-brown-700 underline"
-                >
-                  <Images size={17} />
-                  {t.backToFrames}
-                </Link>
+                  )}
+                  {photoUrl && (
+                    <DownloadLink href={photoUrl} fileName="glowframe-photobooth.png" secondary>
+                      <Download />
+                      {t.downloadPhoto}
+                    </DownloadLink>
+                  )}
+                  <Button className="w-full" variant="outline" onClick={retake}>
+                    <RefreshCcw />
+                    {t.retake}
+                  </Button>
+                  <Link
+                    href="/photobooth"
+                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-gf-brown-700 underline"
+                  >
+                    <Images size={17} />
+                    {t.backToFrames}
+                  </Link>
+                </div>
               </div>
             </div>
           )}
         </section>
       )}
     </div>
+  )
+}
+
+function CameraPreviewStage({
+  t,
+  videoRef,
+  countdown,
+  flash,
+  isCameraReady,
+  onCameraReady,
+}: {
+  t: ReturnType<typeof getPageText<'photobooth'>>
+  videoRef: React.RefObject<HTMLVideoElement | null>
+  countdown: number | null
+  flash: boolean
+  isCameraReady: boolean
+  onCameraReady: () => void
+}) {
+  return (
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-[920px] overflow-hidden rounded-[8px] bg-gf-brown-900 shadow-[var(--gf-shadow)]">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        onLoadedMetadata={onCameraReady}
+        className="h-full w-full -scale-x-100 object-cover"
+      />
+      <div className="pointer-events-none absolute inset-4 border border-white/35 sm:inset-5" />
+      <CameraStageFeedback
+        t={t}
+        countdown={countdown}
+        flash={flash}
+        isCameraReady={isCameraReady}
+      />
+    </div>
+  )
+}
+
+function CameraStageFeedback({
+  t,
+  countdown,
+  flash,
+  isCameraReady,
+}: {
+  t: ReturnType<typeof getPageText<'photobooth'>>
+  countdown: number | null
+  flash: boolean
+  isCameraReady: boolean
+}) {
+  return (
+    <>
+      {countdown !== null && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/25 text-white">
+          <span className="text-[clamp(64px,14vw,140px)] font-bold leading-none drop-shadow-md">
+            {countdown}
+          </span>
+          <span className="mt-3 text-sm font-semibold drop-shadow-md">{t.lookAtCamera}</span>
+        </div>
+      )}
+      {flash && <div className="absolute inset-0 z-40 bg-white" />}
+      {!isCameraReady && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-gf-brown-900 px-5 text-center text-sm text-white/75">
+          {t.cameraPermission}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -477,12 +577,10 @@ interface SetupPanelProps {
   photoCount: number
   frameColor: string
   countdownSeconds: CountdownSeconds
-  outputType: PhotoboothOutputType
   cameraError: string | null
   onPhotoCountChange: (value: 2 | 3 | 4) => void
   onFrameColorChange: (value: string) => void
   onCountdownChange: (value: CountdownSeconds) => void
-  onOutputTypeChange: (value: PhotoboothOutputType) => void
   onOpenCamera: () => void
 }
 
@@ -545,19 +643,20 @@ function SetupPanel({
   photoCount,
   frameColor,
   countdownSeconds,
-  outputType,
   cameraError,
   onPhotoCountChange,
   onFrameColorChange,
   onCountdownChange,
-  onOutputTypeChange,
   onOpenCamera,
 }: SetupPanelProps) {
   return (
     <section className="grid min-w-0 items-start gap-7 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)] xl:gap-10">
       <div className="min-w-0 xl:sticky xl:top-24">
         <p className="mb-3 mt-0 text-xs font-semibold uppercase text-gf-muted">{t.preview}</p>
-        <div className="flex h-[min(58vh,340px)] min-h-[260px] min-w-0 items-center justify-center overflow-hidden bg-gf-pink-100/40 px-4 py-5 sm:h-[420px] sm:px-7 sm:py-7 xl:h-[min(62vh,520px)]">
+        <div
+          className="flex h-[min(58vh,340px)] min-h-[260px] min-w-0 items-center justify-center overflow-hidden bg-gf-pink-100/40 px-4 py-5 sm:h-[420px] sm:px-7 sm:py-7 xl:h-[min(62vh,520px)]"
+          style={{ containerType: 'size' }}
+        >
           {databaseFrame ? (
             <DatabaseFramePreview frame={databaseFrame} />
           ) : (
@@ -576,7 +675,7 @@ function SetupPanel({
         </header>
 
         <SettingSection icon={Images} title={t.photoCount}>
-          {databaseFrame ? (
+          {databaseFrame && databaseFrame.frameCount > 1 ? (
             <div className="inline-flex min-h-12 items-baseline gap-2 border-b-2 border-gf-pink-400 px-1 py-2 text-gf-brown-900">
               <strong className="text-2xl">{photoCount}</strong>
               <span className="text-sm font-medium text-gf-muted">{t.shots}</span>
@@ -593,7 +692,7 @@ function SetupPanel({
           )}
         </SettingSection>
 
-        <SettingSection icon={Timer} title={t.countdownTime}>
+        <SettingSection icon={Timer} title={t.countdownTime} last={Boolean(databaseFrame)}>
           <CountdownStepper
             value={countdownSeconds}
             onChange={onCountdownChange}
@@ -604,7 +703,7 @@ function SetupPanel({
         </SettingSection>
 
         {!databaseFrame && (
-          <SettingSection icon={Sparkles} title={t.frameColor}>
+          <SettingSection icon={Sparkles} title={t.frameColor} last>
             <div className="flex flex-wrap gap-3">
               {FRAME_COLORS.map((color) => (
                 <button
@@ -633,37 +732,6 @@ function SetupPanel({
           </SettingSection>
         )}
 
-        <SettingSection icon={Film} title={t.outputType} last>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(['photo', 'gif'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onOutputTypeChange(value)}
-                className={cn(
-                  'relative min-h-[108px] rounded-[8px] border px-4 py-3.5 text-left transition-[background-color,border-color]',
-                  outputType === value
-                    ? 'border-gf-pink-500 bg-gf-pink-100/55 text-gf-brown-900'
-                    : 'border-gf-line bg-transparent text-gf-brown-700 hover:border-gf-pink-300',
-                )}
-              >
-                <span className="mb-2 flex size-8 items-center justify-center rounded-full border border-gf-line bg-white text-gf-brown-800">
-                  {value === 'photo' ? <Images size={16} /> : <Film size={16} />}
-                </span>
-                <span className="block text-sm font-bold">
-                  {value === 'photo' ? t.stillPhoto : t.animatedGif}
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-gf-muted">
-                  {value === 'photo' ? t.stillDescription : t.gifDescription}
-                </span>
-                {outputType === value && (
-                  <Check className="absolute right-3 top-3 text-gf-pink-600" size={17} />
-                )}
-              </button>
-            ))}
-          </div>
-        </SettingSection>
-
         {cameraError && (
           <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {cameraError}
@@ -684,14 +752,14 @@ function SetupPanel({
 }
 
 function DatabaseFramePreview({ frame }: { frame: PhotoboothFrame }) {
-  const landscape = frame.canvasWidth >= frame.canvasHeight
+  const frameRatio = frame.canvasWidth / frame.canvasHeight
+
   return (
     <div
-      className="relative max-h-full max-w-full overflow-hidden shadow-[0_14px_34px_rgba(76,54,48,0.16)]"
+      className="relative shrink-0 overflow-hidden shadow-[0_14px_34px_rgba(76,54,48,0.16)]"
       style={{
         aspectRatio: `${frame.canvasWidth}/${frame.canvasHeight}`,
-        width: landscape ? '100%' : undefined,
-        height: landscape ? undefined : '100%',
+        width: `min(100%, calc(100cqh * ${frameRatio}))`,
       }}
     >
       {frame.slots.map((slot, index) => (

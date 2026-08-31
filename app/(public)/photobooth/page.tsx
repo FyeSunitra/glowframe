@@ -199,15 +199,26 @@ function DatabaseFrameCard({
 }) {
   const name = locale === 'th' ? frame.nameTh : frame.nameEn
   const landscape = frame.canvasWidth >= frame.canvasHeight
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const hoverLabel = frame.price && frame.price > 0
     ? formatFramePrice(frame.price, locale)
     : undefined
+
+  const handlePress = () => {
+    if (isDetailsOpen) {
+      onSelect()
+      return
+    }
+    setIsDetailsOpen(true)
+  }
+
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={handlePress}
       aria-label={name}
-      className="group flex h-[420px] w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:w-[340px] lg:w-[360px]"
+      aria-pressed={isDetailsOpen}
+      className="flex h-[420px] w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:w-[340px] lg:w-[360px]"
     >
       <div className="flex h-full w-full items-center justify-center">
         <div
@@ -225,7 +236,12 @@ function DatabaseFrameCard({
             unoptimized
             className="object-contain"
           />
-          <FrameHoverOverlay price={hoverLabel} actionLabel={actionLabel} />
+          <FrameDetailsOverlay
+            open={isDetailsOpen}
+            name={name}
+            price={hoverLabel}
+            actionLabel={actionLabel}
+          />
         </div>
       </div>
     </button>
@@ -427,17 +443,26 @@ function formatCountdown(totalSeconds: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function FrameHoverOverlay({
+function FrameDetailsOverlay({
+  open,
+  name,
   price,
   actionLabel,
 }: {
+  open: boolean
+  name: string
   price?: string
   actionLabel: string
 }) {
   return (
-    <span className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gf-brown-900/55 px-4 text-center text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+    <span
+      className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gf-brown-900/60 px-5 text-center text-white transition-opacity duration-200 ${
+        open ? 'opacity-100' : 'opacity-0'
+      }`}
+    >
+      <strong className="max-w-full text-base font-bold leading-6">{name}</strong>
       {price && <strong className="text-xl font-bold">{price}</strong>}
-      <span className="text-sm font-semibold">{actionLabel}</span>
+      <span className="mt-1 text-sm font-semibold underline underline-offset-4">{actionLabel}</span>
     </span>
   )
 }
