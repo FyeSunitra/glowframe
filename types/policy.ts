@@ -10,10 +10,10 @@ export type PolicyDocumentType =
 
 export type RequiredPolicyType = Extract<
   PolicyDocumentType,
-  'termsOfService' | 'privacyPolicy' | 'rentalAgreement' | 'paymentPolicy'
+  'termsOfService' | 'privacyPolicy' | 'rentalAgreement' | 'listingPolicy' | 'paymentPolicy'
 >
 
-export type PolicyContext = 'signup' | 'payment'
+export type PolicyContext = 'signup' | 'listing' | 'payment' | 'rental'
 
 export type PolicyDocumentStatus = 'draft' | 'current' | 'superseded' | 'archived'
 
@@ -60,4 +60,8 @@ export interface RequiredPolicy {
 export interface RequiredPolicyParams {
   locale: MenuLocale
   context?: PolicyContext
+}
+
+export interface ListingPolicyAcceptanceStatus {
+  accepted: boolean
 }

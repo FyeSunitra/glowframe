@@ -78,6 +78,7 @@ export function PolicyModal({
     termsOfService: t.termsAndConditions,
     privacyPolicy: t.privacyPolicy,
     rentalAgreement: t.rentalPolicy,
+    listingPolicy: locale === 'th' ? 'นโยบายการลงสินค้า' : 'Listing Policy',
     paymentPolicy: t.paymentPolicy,
   }
   const body = policy?.body.trim() || t.policyFallback[policyType]

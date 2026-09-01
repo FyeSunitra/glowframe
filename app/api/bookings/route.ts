@@ -4,6 +4,8 @@ import {
   BookingStatus,
   DeliveryMethod,
   PaymentStatus,
+  PolicyDocumentStatus,
+  PolicyDocumentType,
   ProductStatus,
   Prisma,
 } from '@/lib/generated/prisma/client'
@@ -92,6 +94,33 @@ export async function POST(request: NextRequest) {
     if (!context.user.emailVerifiedAt) {
       return NextResponse.json(
         { error: 'Email verification is required.' },
+        { status: 403 },
+      )
+    }
+
+    const rentalAgreement = await prisma.policyDocument.findFirst({
+      where: {
+        type: PolicyDocumentType.rentalAgreement,
+        status: PolicyDocumentStatus.current,
+      },
+      orderBy: { publishedAt: 'desc' },
+      select: { id: true },
+    })
+    if (!rentalAgreement) {
+      return NextResponse.json({ error: 'The current rental agreement is unavailable.' }, { status: 503 })
+    }
+    const agreementAccepted = await prisma.userPolicyAcceptance.findUnique({
+      where: {
+        userId_policyDocumentId: {
+          userId: context.user.id,
+          policyDocumentId: rentalAgreement.id,
+        },
+      },
+      select: { id: true },
+    })
+    if (!agreementAccepted) {
+      return NextResponse.json(
+        { error: 'Accept the current rental agreement before confirming a booking.' },
         { status: 403 },
       )
     }

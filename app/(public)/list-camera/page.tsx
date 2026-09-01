@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,11 +21,13 @@ import { StatusBadge } from '@/components/admin/shared/StatusBadge'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
 import { CameraGlyph } from '@/components/common/CameraGlyph'
 import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
+import { ListingPolicyGateDialog } from '@/components/features/products/ListingPolicyGateDialog'
 import { useToast } from '@/hooks/useToast'
 import { unwrapApiResponse } from '@/lib/api'
 import { getPageText } from '@/lib/menuI18n'
 import { cn, money } from '@/lib/utils'
 import { productService } from '@/services/products'
+import { policyService } from '@/services/policy'
 import { useAppStore } from '@/store/appStore'
 import type { Product } from '@/types'
 import type {
@@ -49,6 +50,7 @@ export default function ListCameraPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [listingPolicyOpen, setListingPolicyOpen] = useState(false)
 
   const {
     data: products = [],
@@ -71,11 +73,29 @@ export default function ListCameraPage() {
     onError: () => showToast(t.statusUpdateFailed),
   })
 
+  const listingPolicyStatusMutation = useMutation({
+    mutationFn: async () => unwrapApiResponse(await policyService.getListingAcceptanceStatus()),
+    onSuccess: (status) => {
+      if (status.accepted) {
+        router.push('/list-camera/add')
+        return
+      }
+      setListingPolicyOpen(true)
+    },
+    onError: () => setListingPolicyOpen(true),
+  })
+
   async function openDetail(product: Product) {
     setSelectedProduct(product)
     setDetailOpen(true)
     const response = await productService.getMine(product.id)
     if (response.success) setSelectedProduct(response.data)
+  }
+
+  function openAddProduct() {
+    if (!listingPolicyStatusMutation.isPending) {
+      listingPolicyStatusMutation.mutate()
+    }
   }
 
 
@@ -88,13 +108,15 @@ export default function ListCameraPage() {
             <Package size={20} />
             {t.myProducts}
           </h1>
-          <Link
-            href="/list-camera/add"
+          <button
+            type="button"
+            onClick={openAddProduct}
+            disabled={listingPolicyStatusMutation.isPending}
             className="inline-flex min-h-10 items-center gap-2 rounded-full border-[1.5px] border-gf-brown-300 bg-transparent px-4 py-2 text-[13px] font-semibold text-gf-brown-800 no-underline"
           >
             <Plus size={16} />
             {t.addProduct}
-          </Link>
+          </button>
         </div>
 
         {isLoading ? (
@@ -104,13 +126,15 @@ export default function ListCameraPage() {
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
             <p className="m-0 text-sm text-gf-muted">{t.noProducts}</p>
-            <Link
-              href="/list-camera/add"
+            <button
+              type="button"
+              onClick={openAddProduct}
+              disabled={listingPolicyStatusMutation.isPending}
               className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gf-pink-100 px-5 py-2.5 text-sm font-semibold text-gf-brown-800 no-underline"
             >
               <Plus size={18} />
               {t.addProduct}
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-gf-line">
@@ -169,6 +193,15 @@ export default function ListCameraPage() {
               action: confirm.action,
             })
           }
+        }}
+      />
+
+      <ListingPolicyGateDialog
+        open={listingPolicyOpen}
+        onOpenChange={setListingPolicyOpen}
+        onAccepted={() => {
+          setListingPolicyOpen(false)
+          router.push('/list-camera/add')
         }}
       />
     </div>

@@ -15,7 +15,8 @@ export function captureVideoFrame(video: HTMLVideoElement) {
   drawVideoCover(context, video, canvas.width, canvas.height)
   context.restore()
 
-  return canvas.toDataURL('image/jpeg', 0.92)
+  // Keep the captured frame lossless until each final output format encodes it.
+  return canvas.toDataURL('image/png')
 }
 
 export async function createPhotoStrip(
@@ -58,7 +59,7 @@ export async function createPhotoStrip(
 export async function createAnimatedGif(
   sources: string[],
 ) {
-  const [{ GIFEncoder, quantize, applyPalette }, images] = await Promise.all([
+  const [{ GIFEncoder, quantize }, images] = await Promise.all([
     import('gifenc'),
     Promise.all(sources.map(loadImage)),
   ])
@@ -77,27 +78,79 @@ export async function createAnimatedGif(
   const context = requiredContext(canvas, true)
   const encoder = GIFEncoder()
 
-  const renderedFrames = images.map((image) => {
+  for (const image of images) {
     context.clearRect(0, 0, width, height)
     drawImageCover(context, image, 0, 0, width, height)
-    return new Uint8ClampedArray(context.getImageData(0, 0, width, height).data)
-  })
-  renderedFrames.forEach((rgba) => {
-    // Each shot gets its own 256-color palette for better photo color fidelity.
+    const rgba = context.getImageData(0, 0, width, height).data
+    // Build a tailored 256-color palette per photograph, then preserve tonal
+    // transitions with serpentine Floyd-Steinberg error diffusion.
     const palette = quantize(rgba, 256, { format: 'rgb565' })
-    const indexed = applyPalette(rgba, palette, 'rgb565')
+    const indexed = ditherToPalette(rgba, width, height, palette)
     encoder.writeFrame(indexed, width, height, {
       palette,
       delay: 900,
       repeat: 0,
     })
-  })
+    await yieldToBrowser()
+  }
 
   encoder.finish()
   const bytes = encoder.bytes()
   const copy = new Uint8Array(bytes.length)
   copy.set(bytes)
   return new Blob([copy.buffer], { type: 'image/gif' })
+}
+
+export async function createAnimatedWebM(sources: string[]) {
+  if (!('MediaRecorder' in window)) {
+    throw new Error('This browser does not support video export.')
+  }
+
+  const images = await Promise.all(sources.map(loadImage))
+  const firstImage = images[0]
+  if (!firstImage) throw new Error('At least one photo is required to create a video.')
+
+  const width = firstImage.naturalWidth
+  const height = firstImage.naturalHeight
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = requiredContext(canvas)
+  const stream = canvas.captureStream(30)
+  const mimeType = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ].find((type) => MediaRecorder.isTypeSupported(type))
+  const recorder = mimeType
+    ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
+    : new MediaRecorder(stream)
+  const chunks: BlobPart[] = []
+
+  const completed = new Promise<Blob>((resolve, reject) => {
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data)
+    }
+    recorder.onerror = () => reject(new Error('Video export failed.'))
+    recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || 'video/webm' }))
+  })
+
+  try {
+    drawImageCover(context, firstImage, 0, 0, width, height)
+    recorder.start()
+
+    for (const image of images) {
+      context.clearRect(0, 0, width, height)
+      drawImageCover(context, image, 0, 0, width, height)
+      await delay(900)
+    }
+
+    recorder.stop()
+    return await completed
+  } finally {
+    if (recorder.state !== 'inactive') recorder.stop()
+    stream.getTracks().forEach((track) => track.stop())
+  }
 }
 
 export async function createFramedPhoto(
@@ -152,6 +205,122 @@ function requiredContext(canvas: HTMLCanvasElement, readOften = false) {
   const context = canvas.getContext('2d', { willReadFrequently: readOften })
   if (!context) throw new Error('Canvas is unavailable.')
   return context
+}
+
+function ditherToPalette(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  palette: number[][],
+) {
+  const indexed = new Uint8Array(width * height)
+  const paletteLookup = new Int16Array(1 << 15)
+  paletteLookup.fill(-1)
+  let currentRed = new Float32Array(width + 2)
+  let currentGreen = new Float32Array(width + 2)
+  let currentBlue = new Float32Array(width + 2)
+  let nextRed = new Float32Array(width + 2)
+  let nextGreen = new Float32Array(width + 2)
+  let nextBlue = new Float32Array(width + 2)
+
+  for (let y = 0; y < height; y += 1) {
+    const rightToLeft = y % 2 === 1
+    const start = rightToLeft ? width - 1 : 0
+    const end = rightToLeft ? -1 : width
+    const step = rightToLeft ? -1 : 1
+
+    for (let x = start; x !== end; x += step) {
+      const pixelOffset = (y * width + x) * 4
+      const errorOffset = x + 1
+      const red = clampColor(rgba[pixelOffset] + currentRed[errorOffset])
+      const green = clampColor(rgba[pixelOffset + 1] + currentGreen[errorOffset])
+      const blue = clampColor(rgba[pixelOffset + 2] + currentBlue[errorOffset])
+      const paletteIndex = findPaletteIndex(red, green, blue, palette, paletteLookup)
+      const color = palette[paletteIndex]
+      const redError = red - color[0]
+      const greenError = green - color[1]
+      const blueError = blue - color[2]
+
+      indexed[y * width + x] = paletteIndex
+
+      if (rightToLeft) {
+        currentRed[errorOffset - 1] += redError * (7 / 16)
+        currentGreen[errorOffset - 1] += greenError * (7 / 16)
+        currentBlue[errorOffset - 1] += blueError * (7 / 16)
+        nextRed[errorOffset + 1] += redError * (3 / 16)
+        nextGreen[errorOffset + 1] += greenError * (3 / 16)
+        nextBlue[errorOffset + 1] += blueError * (3 / 16)
+        nextRed[errorOffset] += redError * (5 / 16)
+        nextGreen[errorOffset] += greenError * (5 / 16)
+        nextBlue[errorOffset] += blueError * (5 / 16)
+        nextRed[errorOffset - 1] += redError * (1 / 16)
+        nextGreen[errorOffset - 1] += greenError * (1 / 16)
+        nextBlue[errorOffset - 1] += blueError * (1 / 16)
+      } else {
+        currentRed[errorOffset + 1] += redError * (7 / 16)
+        currentGreen[errorOffset + 1] += greenError * (7 / 16)
+        currentBlue[errorOffset + 1] += blueError * (7 / 16)
+        nextRed[errorOffset - 1] += redError * (3 / 16)
+        nextGreen[errorOffset - 1] += greenError * (3 / 16)
+        nextBlue[errorOffset - 1] += blueError * (3 / 16)
+        nextRed[errorOffset] += redError * (5 / 16)
+        nextGreen[errorOffset] += greenError * (5 / 16)
+        nextBlue[errorOffset] += blueError * (5 / 16)
+        nextRed[errorOffset + 1] += redError * (1 / 16)
+        nextGreen[errorOffset + 1] += greenError * (1 / 16)
+        nextBlue[errorOffset + 1] += blueError * (1 / 16)
+      }
+    }
+
+    ;[currentRed, nextRed] = [nextRed, currentRed]
+    ;[currentGreen, nextGreen] = [nextGreen, currentGreen]
+    ;[currentBlue, nextBlue] = [nextBlue, currentBlue]
+    nextRed.fill(0)
+    nextGreen.fill(0)
+    nextBlue.fill(0)
+  }
+
+  return indexed
+}
+
+function findPaletteIndex(
+  red: number,
+  green: number,
+  blue: number,
+  palette: number[][],
+  lookup: Int16Array,
+) {
+  const key = ((red >> 3) << 10) | ((green >> 3) << 5) | (blue >> 3)
+  const cached = lookup[key]
+  if (cached >= 0) return cached
+
+  const sampleRed = (red & 0xf8) + 4
+  const sampleGreen = (green & 0xf8) + 4
+  const sampleBlue = (blue & 0xf8) + 4
+  let closestIndex = 0
+  let closestDistance = Number.POSITIVE_INFINITY
+
+  palette.forEach((color, index) => {
+    const redDistance = sampleRed - color[0]
+    const greenDistance = sampleGreen - color[1]
+    const blueDistance = sampleBlue - color[2]
+    const distance = redDistance * redDistance + greenDistance * greenDistance + blueDistance * blueDistance
+    if (distance < closestDistance) {
+      closestDistance = distance
+      closestIndex = index
+    }
+  })
+
+  lookup[key] = closestIndex
+  return closestIndex
+}
+
+function clampColor(value: number) {
+  return Math.min(255, Math.max(0, value))
+}
+
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, 0))
 }
 
 function drawVideoCover(
@@ -249,6 +418,10 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
       else reject(new Error('Image could not be created.'))
     }, type)
   })
+}
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
 function isDark(color: string) {

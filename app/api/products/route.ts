@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, resolveSession, setSessionCookies, syncSupabaseUser } from '@/lib/auth/server'
 import {
   MediaType,
+  PolicyDocumentStatus,
+  PolicyDocumentType,
   ProductStatus,
   VerificationStatus,
 } from '@/lib/generated/prisma/client'
@@ -40,6 +42,32 @@ export async function POST(req: NextRequest) {
     const authenticated = await authenticatedUser()
     if (!authenticated) {
       return NextResponse.json({ error: 'Unauthenticated.' }, { status: 401 })
+    }
+
+    const listingPolicy = await prisma.policyDocument.findFirst({
+      where: {
+        type: PolicyDocumentType.listingPolicy,
+        status: PolicyDocumentStatus.current,
+      },
+      orderBy: { publishedAt: 'desc' },
+      select: { id: true },
+    })
+    if (!listingPolicy) {
+      return NextResponse.json({ error: 'The current listing policy is unavailable.' }, { status: 503 })
+    }
+
+    const policyAccepted = await prisma.userPolicyAcceptance.findFirst({
+      where: {
+        userId: authenticated.user.id,
+        policyDocumentId: listingPolicy.id,
+      },
+      select: { id: true },
+    })
+    if (!policyAccepted) {
+      return NextResponse.json(
+        { error: 'Accept the current listing policy before listing an item.' },
+        { status: 403 },
+      )
     }
 
     const verified = await prisma.identityVerification.findFirst({

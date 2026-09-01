@@ -8,6 +8,7 @@ import {
   Download,
   Film,
   Images,
+  LoaderCircle,
   Minus,
   Plus,
   RefreshCcw,
@@ -26,6 +27,7 @@ import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import {
   captureVideoFrame,
   createAnimatedGif,
+  createAnimatedWebM,
   createFramedPhoto,
   createPhotoStrip,
 } from '@/components/features/photobooth/photoboothCanvas'
@@ -42,7 +44,7 @@ import type {
 } from '@/types/photobooth'
 
 type StudioPhase = 'setup' | 'camera' | 'result'
-type ResultView = 'photo' | 'gif'
+type ResultView = 'photo' | 'motion'
 
 const COUNTDOWN_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10] as const
 type CountdownSeconds = (typeof COUNTDOWN_OPTIONS)[number]
@@ -81,7 +83,9 @@ function PhotoboothStudio() {
   const [shotIndex, setShotIndex] = useState(0)
   const [capturedImages, setCapturedImages] = useState<string[]>([])
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [gifUrl, setGifUrl] = useState<string | null>(null)
+  const [motionUrl, setMotionUrl] = useState<string | null>(null)
+  const [isExportingGif, setIsExportingGif] = useState(false)
+  const [gifExportError, setGifExportError] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isCameraReady, setIsCameraReady] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -140,9 +144,9 @@ function PhotoboothStudio() {
 
   useEffect(() => {
     return () => {
-      if (gifUrl) URL.revokeObjectURL(gifUrl)
+      if (motionUrl) URL.revokeObjectURL(motionUrl)
     }
-  }, [gifUrl])
+  }, [motionUrl])
 
   async function openCamera() {
     clearResults()
@@ -216,9 +220,9 @@ function PhotoboothStudio() {
       if (captureSessionRef.current !== session) return
       setPhotoUrl(URL.createObjectURL(photoBlob))
 
-      const gifBlob = await createAnimatedGif(shots)
+      const motionBlob = await createAnimatedWebM(shots)
       if (captureSessionRef.current !== session) return
-      setGifUrl(URL.createObjectURL(gifBlob))
+      setMotionUrl(URL.createObjectURL(motionBlob))
     } catch (error) {
       console.error('Failed to create photobooth result', error)
       setResultError(t.resultFailed)
@@ -251,9 +255,31 @@ function PhotoboothStudio() {
 
   function clearResults() {
     if (photoUrl) URL.revokeObjectURL(photoUrl)
-    if (gifUrl) URL.revokeObjectURL(gifUrl)
+    if (motionUrl) URL.revokeObjectURL(motionUrl)
     setPhotoUrl(null)
-    setGifUrl(null)
+    setMotionUrl(null)
+    setGifExportError(null)
+  }
+
+  async function exportGif() {
+    if (isExportingGif || capturedImages.length === 0) return
+
+    setIsExportingGif(true)
+    setGifExportError(null)
+    try {
+      const gifBlob = await createAnimatedGif(capturedImages)
+      const url = URL.createObjectURL(gifBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'glowframe-photobooth.gif'
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+    } catch (error) {
+      console.error('Failed to export photobooth GIF', error)
+      setGifExportError(t.gifExportFailed)
+    } finally {
+      setIsExportingGif(false)
+    }
   }
 
   const styleName = databaseFrame
@@ -415,44 +441,68 @@ function PhotoboothStudio() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setResultView('gif')}
-                    disabled={!gifUrl}
+                    onClick={() => setResultView('motion')}
+                    disabled={!motionUrl}
                     className={cn(
                       'flex min-h-10 items-center justify-center gap-2 rounded-full border-0 px-5 text-sm font-semibold transition-colors disabled:opacity-40',
-                      resultView === 'gif'
+                      resultView === 'motion'
                         ? 'bg-gf-pink-500 text-gf-brown-900'
                         : 'bg-transparent text-gf-brown-700 hover:bg-gf-pink-100',
                     )}
-                    aria-pressed={resultView === 'gif'}
+                    aria-pressed={resultView === 'motion'}
                   >
                     <Film size={16} />
-                    {t.animatedGif}
+                    {t.motionPreview}
                   </button>
                 </div>
               </div>
 
               <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-[8px] bg-white p-4 shadow-[var(--gf-shadow-sm)] sm:min-h-[520px] sm:p-7">
-                  <div
-                    role="img"
-                    aria-label={resultView === 'gif' ? t.animatedGif : t.resultTitle}
-                    className="h-[min(66vh,720px)] w-full bg-contain bg-center bg-no-repeat"
-                    style={{ backgroundImage: `url(${resultView === 'gif' ? gifUrl : photoUrl})` }}
-                  />
+                  {resultView === 'motion' && motionUrl ? (
+                    <video
+                      src={motionUrl}
+                      className="h-[min(66vh,720px)] max-w-full object-contain"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      controls
+                    />
+                  ) : (
+                    <div
+                      role="img"
+                      aria-label={t.resultTitle}
+                      className="h-[min(66vh,720px)] w-full bg-contain bg-center bg-no-repeat"
+                      style={{ backgroundImage: `url(${photoUrl})` }}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-3">
-                  {gifUrl && (
-                  <DownloadLink href={gifUrl} fileName="glowframe-photobooth.gif">
-                    <Film />
-                    {t.downloadGif}
-                  </DownloadLink>
+                  {motionUrl && (
+                    <DownloadLink href={motionUrl} fileName="glowframe-photobooth.webm">
+                      <Film />
+                      {t.downloadWebm}
+                    </DownloadLink>
                   )}
                   {photoUrl && (
                     <DownloadLink href={photoUrl} fileName="glowframe-photobooth.png" secondary>
                       <Download />
                       {t.downloadPhoto}
                     </DownloadLink>
+                  )}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => void exportGif()}
+                    disabled={isExportingGif || capturedImages.length === 0}
+                  >
+                    {isExportingGif ? <LoaderCircle className="animate-spin" /> : <Film />}
+                    {isExportingGif ? t.exportingGif : t.exportGif}
+                  </Button>
+                  {gifExportError && (
+                    <p className="m-0 text-center text-xs leading-5 text-red-600">{gifExportError}</p>
                   )}
                   <Button className="w-full" variant="outline" onClick={retake}>
                     <RefreshCcw />

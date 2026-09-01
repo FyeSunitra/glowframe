@@ -5,6 +5,7 @@ import type {
   PolicyAction,
   PolicyDocumentType,
   PolicyVersion,
+  ListingPolicyAcceptanceStatus,
   RequiredPolicy,
   RequiredPolicyParams,
 } from '@/types/policy'
@@ -21,6 +22,40 @@ export const policyService = {
       return ok(body.data)
     } catch (error) {
       return fail(error, 'โหลดข้อกำหนดและนโยบายไม่สำเร็จ')
+    }
+  },
+
+  async accept(policyDocumentId: number): Promise<ApiResponse<{ policyDocumentId: number }>> {
+    try {
+      const body = await api.post<ApiDataBody<{ policyDocumentId: number }>>(
+        '/api/policies/accept',
+        { policyDocumentId },
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to accept the policy')
+    }
+  },
+
+  async getListingAcceptanceStatus(): Promise<ApiResponse<ListingPolicyAcceptanceStatus>> {
+    try {
+      const body = await api.get<ApiDataBody<ListingPolicyAcceptanceStatus>>(
+        '/api/policies/listing-status',
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to check listing policy acceptance')
+    }
+  },
+
+  async getRentalAcceptanceStatus(): Promise<ApiResponse<ListingPolicyAcceptanceStatus>> {
+    try {
+      const body = await api.get<ApiDataBody<ListingPolicyAcceptanceStatus>>(
+        '/api/policies/rental-status',
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to check rental agreement acceptance')
     }
   },
 }

@@ -17,12 +17,22 @@ const paymentTypes = [
   PolicyDocumentType.paymentPolicy,
 ]
 
+const listingTypes = [PolicyDocumentType.listingPolicy]
+const rentalTypes = [PolicyDocumentType.rentalAgreement]
+
 export async function GET(req: NextRequest) {
   const locale = req.nextUrl.searchParams.get('locale') === 'en' ? 'en' : 'th'
-  const context = req.nextUrl.searchParams.get('context') === 'payment'
-    ? 'payment'
+  const requestedContext = req.nextUrl.searchParams.get('context')
+  const context = requestedContext === 'payment' || requestedContext === 'listing' || requestedContext === 'rental'
+    ? requestedContext
     : 'signup'
-  const documentTypes = context === 'payment' ? paymentTypes : requiredSignupTypes
+  const documentTypes = context === 'payment'
+    ? paymentTypes
+    : context === 'listing'
+      ? listingTypes
+      : context === 'rental'
+        ? rentalTypes
+      : requiredSignupTypes
   const documents = await prisma.policyDocument.findMany({
     where: {
       type: { in: documentTypes },
