@@ -452,7 +452,7 @@ function PhotoboothStudio() {
                     aria-pressed={resultView === 'motion'}
                   >
                     <Film size={16} />
-                    {t.motionPreview}
+                    GIF
                   </button>
                 </div>
               </div>
@@ -480,12 +480,12 @@ function PhotoboothStudio() {
                 </div>
 
                 <div className="space-y-3">
-                  {motionUrl && (
+                  {/* {motionUrl && (
                     <DownloadLink href={motionUrl} fileName="glowframe-photobooth.webm">
                       <Film />
                       {t.downloadWebm}
                     </DownloadLink>
-                  )}
+                  )} */}
                   {photoUrl && (
                     <DownloadLink href={photoUrl} fileName="glowframe-photobooth.png" secondary>
                       <Download />
