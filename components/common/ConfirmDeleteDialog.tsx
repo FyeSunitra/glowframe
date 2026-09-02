@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { LoadingSpinner } from '@/components/common/LoadingState'
 import { getMenuText } from '@/lib/menuI18n'
 import { useAppStore } from '@/store/appStore'
 
@@ -49,6 +50,7 @@ export function ConfirmDeleteDialog({
             onClick={onConfirm}
             className="rounded-full bg-gf-red text-white"
           >
+            {pending && <LoadingSpinner size="sm" className="text-white" />}
             {text.yes}
           </AlertDialogAction>
         </AlertDialogFooter>

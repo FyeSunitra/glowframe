@@ -27,7 +27,7 @@ export async function GET() {
     const databaseUser = await syncSupabaseUser(resolved.user)
     const response = NextResponse.json({
       data: {
-        user: await toAppUser(databaseUser.id),
+        user: await toAppUser(databaseUser.id, resolved.user),
       },
     })
     if (resolved.session) setSessionCookies(response, resolved.session)

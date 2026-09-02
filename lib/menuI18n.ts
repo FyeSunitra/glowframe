@@ -394,6 +394,7 @@ export const pageText = {
         changing: 'กำลังเปลี่ยนรหัสผ่าน…',
         change: 'เปลี่ยนรหัสผ่าน',
         changed: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว',
+        googleManaged: 'บัญชีนี้เข้าสู่ระบบผ่าน Google จึงไม่มีรหัสผ่าน GlowFrame ให้เปลี่ยน',
       },
       verification: {
         breadcrumb: 'ยืนยันตัวตน',
@@ -1938,6 +1939,7 @@ export const pageText = {
         changing: 'Changing password…',
         change: 'Change password',
         changed: 'Password changed successfully.',
+        googleManaged: 'This account signs in with Google and does not have a GlowFrame password to change.',
       },
       verification: {
         breadcrumb: 'Identity Verification',

@@ -6,6 +6,7 @@ import { BadgeCheck, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useToast } from '@/hooks/useToast';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
+import { LoadingState } from '@/components/common/LoadingState';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AccountTabs } from '../AccountTabs';
@@ -144,9 +145,7 @@ export default function AccountProfilePage() {
       <AccountTabs active="profile" />
 
       {isLoading ? (
-        <div className="flex min-h-64 items-center justify-center text-sm text-gf-muted">
-          {t.loading}
-        </div>
+        <LoadingState label={t.loading} className="min-h-64" />
       ) : loadFailed || !profile ? (
         <div className="flex min-h-64 flex-col items-center justify-center gap-4 text-center">
           <p className="m-0 text-sm text-gf-muted">{t.loadFailed}</p>

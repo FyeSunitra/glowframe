@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
+import { LoadingState } from '@/components/common/LoadingState';
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -329,7 +330,7 @@ export default function AccountAddressPage() {
 
         <div className="px-5 py-6 sm:px-7">
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-gf-muted">{t.loading}</div>
+            <LoadingState label={t.loading} compact />
           ) : loadFailed ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center">
               <p className="m-0 text-sm text-gf-muted">{t.loadFailed}</p>

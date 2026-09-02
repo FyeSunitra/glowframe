@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { ProductCard } from '@/components/features/products/ProductCard'
 import { RentalAgreementGateDialog } from '@/components/features/products/RentalAgreementGateDialog'
 import { unwrapApiResponse } from '@/lib/api'
@@ -43,7 +44,7 @@ export default function ForRentPage() {
         onAccepted={() => setRentalAgreementAccepted(true)}
       />
       {isLoading ? (
-        <div className="py-16 text-center text-gf-muted">{t.loading}</div>
+        <LoadingState label={t.loading} />
       ) : products.length === 0 ? (
         <div className="py-16 text-center text-sm text-gf-muted">{t.notFound}</div>
       ) : (

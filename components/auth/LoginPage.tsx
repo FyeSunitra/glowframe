@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStartingGoogle, setIsStartingGoogle] = useState(false);
   const login = useAppStore((state) => state.login);
   const locale = useAppStore((state) => state.locale);
   const setLocale = useAppStore((state) => state.setLocale);
@@ -52,6 +53,11 @@ export default function LoginPage() {
     router.replace(result.data.user.role === 'admin' ? '/admin/dashboard' : '/home');
   }
 
+  function handleGoogleLogin() {
+    setIsStartingGoogle(true);
+    window.location.assign('/api/auth/google?intent=login');
+  }
+
   return (
     <div className="grid w-full max-w-[1180px] grid-cols-2 items-center gap-10 max-[900px]:grid-cols-1">
       <div className="flex flex-col items-start gap-[6px]">
@@ -87,11 +93,12 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => showToast(t.googleUnavailable)}
+          onClick={handleGoogleLogin}
+          disabled={isStartingGoogle || isSubmitting}
           className="mb-5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border-0 bg-white px-5 py-3.5 text-[15px] font-medium text-[#3c3c3c]"
         >
           <GoogleIcon />
-          {t.google}
+          {isStartingGoogle ? t.submitting : t.google}
         </button>
 
         <label htmlFor="login-email" className="my-2 mt-4 block text-[14.5px] text-[#F2D7DC] opacity-90">

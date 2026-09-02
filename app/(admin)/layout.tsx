@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AdminTopbar } from '@/components/admin/layout/AdminTopbar'
 import { AdminSidebar } from '@/components/admin/layout/AdminSidebar'
+import { LoadingState } from '@/components/common/LoadingState'
 import { useAppStore } from '@/store/appStore'
 import { authService } from '@/services/auth'
 import { getPageText } from '@/lib/menuI18n'
@@ -43,8 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (isCheckingSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gf-cream text-sm text-gf-muted">
-        {loadingText}
+      <div className="min-h-screen bg-gf-cream">
+        <LoadingState label={loadingText} className="min-h-screen" />
       </div>
     )
   }

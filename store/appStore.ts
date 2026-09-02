@@ -19,6 +19,7 @@ const DEFAULT_USER: User = {
   emailVerified: true,
   idVerified: false,
   suspended: false,
+  canChangePassword: true,
 };
 
 const DEFAULT_BOOKING: BookingState = {

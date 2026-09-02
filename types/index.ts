@@ -14,6 +14,7 @@ export interface User {
   emailVerified: boolean;
   idVerified: boolean;
   suspended?: boolean;
+  canChangePassword?: boolean;
 }
 
 export type { Address } from './address';

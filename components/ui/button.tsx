@@ -2,6 +2,7 @@
 
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { LoaderCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { translateText } from "@/lib/menuI18n"
@@ -49,15 +50,18 @@ function Button({
   variant = "default",
   size = "default",
   children,
+  loading = false,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { loading?: boolean }) {
   const locale = useAppStore((state) => state.locale)
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
+      disabled={loading || props.disabled}
     >
+      {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
       {typeof children === "string" ? translateText(locale, children) : children}
     </ButtonPrimitive>
   )

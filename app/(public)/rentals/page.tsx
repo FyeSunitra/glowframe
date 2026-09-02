@@ -11,6 +11,7 @@ import {
   Package,
 } from 'lucide-react'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { Pagination } from '@/components/common/Pagination'
 import { unwrapApiResponse } from '@/lib/api'
 import { getPageText } from '@/lib/menuI18n'
@@ -128,7 +129,7 @@ export default function MyRentalsPage() {
         </div>
 
         {isLoading ? (
-          <div className="py-16 text-center text-sm text-gf-muted">{t.loading}</div>
+          <LoadingState label={t.loading} />
         ) : isError ? (
           <div className="py-16 text-center text-sm text-gf-red">{t.loadFailed}</div>
         ) : !data?.items.length ? (

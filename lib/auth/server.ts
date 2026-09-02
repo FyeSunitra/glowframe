@@ -1,11 +1,13 @@
 import { createClient, type Session, type User as SupabaseUser } from '@supabase/supabase-js'
-import type { NextResponse } from 'next/server'
+import type { NextRequest, NextResponse } from 'next/server'
 import { PolicyDocumentStatus, PolicyDocumentType, VerificationStatus } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import type { User } from '@/types'
 
 export const ACCESS_TOKEN_COOKIE = 'gf-access-token'
 export const REFRESH_TOKEN_COOKIE = 'gf-refresh-token'
+const GOOGLE_OAUTH_STORAGE_KEY = 'gf-google-oauth'
+const GOOGLE_OAUTH_VERIFIER_COOKIE = `${GOOGLE_OAUTH_STORAGE_KEY}-code-verifier`
 
 function authConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -26,6 +28,56 @@ export function createSupabaseAuthClient() {
       detectSessionInUrl: false,
       persistSession: false,
     },
+  })
+}
+
+export function createGoogleOAuthClient(request: NextRequest, response: NextResponse) {
+  const { url, key } = authConfig()
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+  }
+
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: true,
+      flowType: 'pkce',
+      storageKey: GOOGLE_OAUTH_STORAGE_KEY,
+      storage: {
+        getItem: (storageKey) =>
+          storageKey === GOOGLE_OAUTH_VERIFIER_COOKIE
+            ? request.cookies.get(GOOGLE_OAUTH_VERIFIER_COOKIE)?.value ?? null
+            : null,
+        setItem: (storageKey, value) => {
+          if (storageKey !== GOOGLE_OAUTH_VERIFIER_COOKIE) return
+          response.cookies.set(GOOGLE_OAUTH_VERIFIER_COOKIE, value, {
+            ...cookieOptions,
+            maxAge: 60 * 10,
+          })
+        },
+        removeItem: (storageKey) => {
+          if (storageKey !== GOOGLE_OAUTH_VERIFIER_COOKIE) return
+          response.cookies.set(GOOGLE_OAUTH_VERIFIER_COOKIE, '', {
+            ...cookieOptions,
+            maxAge: 0,
+          })
+        },
+      },
+    },
+  })
+}
+
+export function clearGoogleOAuthVerifier(response: NextResponse) {
+  response.cookies.set(GOOGLE_OAUTH_VERIFIER_COOKIE, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
   })
 }
 
@@ -121,7 +173,7 @@ export async function acceptRequiredSignupPolicies(userId: bigint) {
   })
 }
 
-export async function toAppUser(userId: bigint): Promise<User> {
+export async function toAppUser(userId: bigint, authUser?: SupabaseUser): Promise<User> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     include: {
@@ -148,7 +200,14 @@ export async function toAppUser(userId: bigint): Promise<User> {
     emailVerified: Boolean(user.emailVerifiedAt),
     idVerified: user.identityVerifications.length > 0,
     suspended: user.status === 'suspended',
+    canChangePassword: authUser ? hasPasswordProvider(authUser) : true,
   }
+}
+
+export function hasPasswordProvider(authUser: SupabaseUser) {
+  const providers = authUser.app_metadata?.providers
+  if (Array.isArray(providers)) return providers.includes('email')
+  return authUser.app_metadata?.provider === 'email'
 }
 
 export async function resolveSession(accessToken?: string, refreshToken?: string) {

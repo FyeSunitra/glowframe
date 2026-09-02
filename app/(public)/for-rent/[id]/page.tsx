@@ -16,6 +16,7 @@ import {
   Star,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
+import { LoadingState } from '@/components/common/LoadingState';
 import { CameraGlyph } from '@/components/common/CameraGlyph';
 import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox';
 import { unwrapApiResponse } from '@/lib/api';
@@ -43,7 +44,7 @@ export default function ProductDetailPage() {
   });
 
   if (isLoading) {
-    return <div className="px-4 py-16 text-center text-gf-muted">{t.loading}</div>;
+    return <LoadingState label={t.loading} className="px-4" />;
   }
 
   if (isError || !product) {

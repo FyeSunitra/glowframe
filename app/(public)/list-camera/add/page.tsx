@@ -18,6 +18,7 @@ import {
   Video,
 } from 'lucide-react'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import {
   Select,
   SelectContent,
@@ -382,7 +383,7 @@ function AddProductContent() {
   })
 
   if (editId && editQuery.isLoading) {
-    return <div className="py-16 text-center text-sm text-gf-muted">{t.loadingProducts}</div>
+    return <LoadingState label={t.loadingProducts} />
   }
 
   if (editId && editQuery.isError) {
@@ -892,9 +893,7 @@ function AddProductContent() {
           <SectionHeading title={t.deliveryAddress} description={t.deliveryAddressSub} />
 
           {addressesQuery.isLoading ? (
-            <div className="flex min-h-[150px] items-center justify-center text-sm text-gf-muted">
-              {t.loadingAddresses}
-            </div>
+            <LoadingState label={t.loadingAddresses} compact />
           ) : addressesQuery.isError ? (
             <div className="flex min-h-[150px] items-center justify-center text-sm text-gf-red">
               {t.loadAddressesFailed}

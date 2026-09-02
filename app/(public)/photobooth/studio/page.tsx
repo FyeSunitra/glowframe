@@ -23,6 +23,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import {
   captureVideoFrame,
@@ -287,7 +288,7 @@ function PhotoboothStudio() {
     : t[frameStyle]
 
   if (frameId && isFrameLoading) {
-    return <div className="py-24 text-center text-sm text-gf-muted">{t.loading}</div>
+    return <LoadingState label={t.loading} className="py-24" />
   }
   if (frameId && (isFrameError || !databaseFrame)) {
     return <div className="py-24 text-center text-sm text-gf-muted">{t.noFrames}</div>
@@ -996,5 +997,5 @@ function defaultFrameColor(style: PhotoboothFrameStyle) {
 
 function StudioFallback() {
   const t = getPageText(useAppStore((state) => state.locale), 'catalog')
-  return <div className="py-24 text-center text-sm text-gf-muted">{t.loading}</div>
+  return <LoadingState label={t.loading} className="py-24" />
 }

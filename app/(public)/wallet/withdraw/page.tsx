@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2 } from 'lucide-react'
+import { Building2, LoaderCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
@@ -48,7 +48,7 @@ export default function WalletWithdrawPage() {
           <div className="mb-4"><Label className="mb-2">{t.chooseAccount}</Label><Select value={selectedId} onValueChange={(value) => setAccountId(value ?? '')}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{approvedAccounts.map((account) => <SelectItem key={account.id} value={String(account.id)}>{account.bank.abbreviation} · {account.accountNumberMasked}</SelectItem>)}</SelectContent></Select></div>
           <div className="mb-4"><Label className="mb-2">{t.withdrawalAmount}</Label><Input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" /></div>
           <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-6 text-gf-brown-700"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1" /><span>{t.agreement}</span></label>
-          <button type="button" disabled={!canSubmit || mutation.isPending} onClick={() => setConfirmOpen(true)} className="mt-5 w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-5 py-3 font-semibold text-gf-brown-900 disabled:cursor-not-allowed disabled:opacity-45">{mutation.isPending ? t.submitting : t.submitWithdrawal}</button>
+          <button type="button" disabled={!canSubmit || mutation.isPending} onClick={() => setConfirmOpen(true)} className="mt-5 w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-5 py-3 font-semibold text-gf-brown-900 disabled:cursor-not-allowed disabled:opacity-45">{mutation.isPending && <LoaderCircle className="mr-2 inline animate-spin" size={17} />}{mutation.isPending ? t.submitting : t.submitWithdrawal}</button>
         </>}
       </section>
       <section><h2 className="mb-2 text-lg font-bold text-gf-brown-900">{t.withdrawalHistory}</h2><TransactionHistory items={withdrawals} /></section>

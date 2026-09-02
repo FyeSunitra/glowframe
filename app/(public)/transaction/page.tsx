@@ -3,10 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Building2, QrCode, ShieldCheck, Upload } from 'lucide-react';
+import { Building2, LoaderCircle, QrCode, ShieldCheck, Upload } from 'lucide-react';
 import { payloadFor } from '@thai-qr-payment/payload';
 import { QRCodeSVG } from 'qrcode.react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
+import { LoadingState } from '@/components/common/LoadingState';
 import { PolicyModal } from '@/components/auth/PolicyModal';
 import { useAppStore } from '@/store/appStore';
 import { useToast } from '@/hooks/useToast';
@@ -76,7 +77,7 @@ export default function TransactionPage() {
     onError: () => showToast(t.submitFailed),
   });
 
-  if (!product) return <div className="[padding:60px] text-gf-muted">{bookingText.loading}</div>;
+  if (!product) return <LoadingState label={bookingText.loading} className="[padding:60px]" />;
 
   const days = booking.days ?? 0;
   const rentalPrice = product.price * days;
@@ -265,6 +266,7 @@ export default function TransactionPage() {
               canSubmit ? 'cursor-pointer opacity-100' : 'cursor-not-allowed opacity-45',
             )}
           >
+            {createBookingMutation.isPending && <LoaderCircle className="mr-2 inline animate-spin" size={17} />}
             {createBookingMutation.isPending ? t.submittingReview : t.submitReview}
           </button>
         </div>

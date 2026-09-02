@@ -14,6 +14,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { FormDialog } from '@/components/admin/shared/FormDialog'
 import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
@@ -62,7 +63,7 @@ export default function RentalDetailPage() {
   )
 
   if (isLoading) {
-    return <div className="py-16 text-center text-sm text-gf-muted">{t.loading}</div>
+    return <LoadingState label={t.loading} />
   }
   if (isError || !booking) {
     return <div className="py-16 text-center text-sm text-gf-red">{t.notFound}</div>

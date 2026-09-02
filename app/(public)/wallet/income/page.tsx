@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { Pagination } from '@/components/common/Pagination'
 import { TransactionHistory } from '@/components/features/wallet/TransactionHistory'
 import { unwrapApiResponse } from '@/lib/api'
@@ -25,7 +26,7 @@ export default function WalletIncomePage() {
     <Breadcrumb items={[t.title, t.history]} />
     <div className="mb-5 flex flex-wrap gap-2">{([{ value: '', label: t.allFilter }, { value: 'incoming', label: t.incomingFilter }, { value: 'outgoing', label: t.outgoingFilter }] as const).map((item) => <button key={item.value} type="button" onClick={() => { setDirection(item.value); setPage(1) }} className={cn('cursor-pointer rounded-full border px-4 py-2 text-sm font-semibold', direction === item.value ? 'border-gf-brown-800 bg-gf-brown-800 text-white' : 'border-gf-line bg-white text-gf-brown-700')}>{item.label}</button>)}</div>
     <section className="bg-white">
-      {isLoading ? <div className="py-16 text-center text-gf-muted">{t.loading}</div> : isError || !data ? <div className="py-16 text-center text-gf-red">{t.loadFailed}</div> : <><TransactionHistory items={data.transactions} />{data.meta.total > 0 && <Pagination {...data.meta} onPageChange={setPage} onLimitChange={(value) => { setLimit(value); setPage(1) }} />}</>}
+      {isLoading ? <LoadingState label={t.loading} /> : isError || !data ? <div className="py-16 text-center text-gf-red">{t.loadFailed}</div> : <><TransactionHistory items={data.transactions} />{data.meta.total > 0 && <Pagination {...data.meta} onPageChange={setPage} onLimitChange={(value) => { setLimit(value); setPage(1) }} />}</>}
     </section>
   </div>
 }

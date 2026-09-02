@@ -19,6 +19,7 @@ import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
 import { StatusBadge } from '@/components/admin/shared/StatusBadge'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { CameraGlyph } from '@/components/common/CameraGlyph'
 import { ProductMediaLightbox } from '@/components/features/products/ProductMediaLightbox'
 import { ListingPolicyGateDialog } from '@/components/features/products/ListingPolicyGateDialog'
@@ -120,7 +121,7 @@ export default function ListCameraPage() {
         </div>
 
         {isLoading ? (
-          <div className="py-16 text-center text-sm text-gf-muted">{t.loadingProducts}</div>
+          <LoadingState label={t.loadingProducts} />
         ) : isError ? (
           <div className="py-16 text-center text-sm text-gf-red">{t.loadProductsFailed}</div>
         ) : products.length === 0 ? (

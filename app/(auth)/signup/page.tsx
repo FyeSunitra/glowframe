@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useToast } from '@/hooks/useToast';
 import { getPageText } from '@/lib/menuI18n';
@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStartingGoogle, setIsStartingGoogle] = useState(false);
   const [policyType, setPolicyType] = useState<RequiredPolicyType | null>(null);
   const login = useAppStore((s) => s.login);
   const setPendingSignupEmail = useAppStore((s) => s.setPendingSignupEmail);
@@ -37,7 +38,9 @@ export default function SignupPage() {
   }
 
   function handleGoogleSignup() {
-    showToast(t.googleUnavailable);
+    if (!validateAgreement()) return;
+    setIsStartingGoogle(true);
+    window.location.assign('/api/auth/google?intent=signup');
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -113,9 +116,14 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <button type="button" onClick={handleGoogleSignup} className="mb-5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border-0 bg-white px-5 py-3.5 text-[15px] font-medium text-[#3c3c3c]">
-          <GoogleIcon />
-          {t.google}
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          disabled={isStartingGoogle || isSubmitting}
+          className="mb-5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border-0 bg-white px-5 py-3.5 text-[15px] font-medium text-[#3c3c3c] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isStartingGoogle ? <LoaderCircle className="animate-spin" size={18} /> : <GoogleIcon />}
+          {isStartingGoogle ? t.submitting : t.google}
         </button>
 
         <div className="my-2 mt-4 text-[14.5px] text-[#F2D7DC] opacity-90">{t.emailLabel}</div>
@@ -166,6 +174,7 @@ export default function SignupPage() {
             disabled={isSubmitting}
             className="w-full cursor-pointer rounded-full border-0 bg-gf-pink-500 px-[26px] py-[13px] text-[15px] font-semibold text-gf-brown-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
+            {isSubmitting && <LoaderCircle className="mr-2 inline animate-spin" size={17} />}
             {isSubmitting ? t.submitting : t.submit}
           </button>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { Eye, EyeOff, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ export default function AccountSecurityPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const locale = useAppStore((state) => state.locale);
+  const canChangePassword = useAppStore((state) => state.user.canChangePassword !== false);
   const accountText = getPageText(locale, 'account');
   const t = accountText.security;
   const { showToast } = useToast();
@@ -75,40 +76,47 @@ export default function AccountSecurityPage() {
           </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="max-w-[620px] space-y-5 px-5 py-6 sm:px-7">
-          <PasswordField
-            id="current-password"
-            label={t.currentPassword}
-            placeholder={t.currentPasswordPlaceholder}
-            value={currentPassword}
-            visible={showCurrentPassword}
-            onChange={setCurrentPassword}
-            onToggle={() => setShowCurrentPassword((visible) => !visible)}
-            showLabel={t.showPassword}
-            hideLabel={t.hidePassword}
-            autoComplete="current-password"
-          />
-          <PasswordField
-            id="new-password"
-            label={t.newPassword}
-            placeholder={t.newPasswordPlaceholder}
-            value={newPassword}
-            visible={showNewPassword}
-            onChange={setNewPassword}
-            onToggle={() => setShowNewPassword((visible) => !visible)}
-            showLabel={t.showPassword}
-            hideLabel={t.hidePassword}
-            autoComplete="new-password"
-          />
+        {canChangePassword ? (
+          <form onSubmit={handleSubmit} className="max-w-[620px] space-y-5 px-5 py-6 sm:px-7">
+            <PasswordField
+              id="current-password"
+              label={t.currentPassword}
+              placeholder={t.currentPasswordPlaceholder}
+              value={currentPassword}
+              visible={showCurrentPassword}
+              onChange={setCurrentPassword}
+              onToggle={() => setShowCurrentPassword((visible) => !visible)}
+              showLabel={t.showPassword}
+              hideLabel={t.hidePassword}
+              autoComplete="current-password"
+            />
+            <PasswordField
+              id="new-password"
+              label={t.newPassword}
+              placeholder={t.newPasswordPlaceholder}
+              value={newPassword}
+              visible={showNewPassword}
+              onChange={setNewPassword}
+              onToggle={() => setShowNewPassword((visible) => !visible)}
+              showLabel={t.showPassword}
+              hideLabel={t.hidePassword}
+              autoComplete="new-password"
+            />
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="min-h-11 cursor-pointer rounded-full border-0 bg-gf-brown-800 px-6 py-2.5 text-sm font-semibold text-gf-pink-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? t.changing : t.change}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="min-h-11 cursor-pointer rounded-full border-0 bg-gf-brown-800 px-6 py-2.5 text-sm font-semibold text-gf-pink-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting && <LoaderCircle className="mr-2 inline animate-spin" size={16} />}
+              {isSubmitting ? t.changing : t.change}
+            </button>
+          </form>
+        ) : (
+          <p className="m-0 max-w-[620px] px-5 py-6 text-sm leading-6 text-gf-muted sm:px-7">
+            {t.googleManaged}
+          </p>
+        )}
       </div>
     </div>
   );

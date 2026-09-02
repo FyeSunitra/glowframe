@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     const response = NextResponse.json({
       data: {
-        user: await toAppUser(databaseUser.id),
+        user: await toAppUser(databaseUser.id, data.user),
       },
     })
     setSessionCookies(response, data.session)

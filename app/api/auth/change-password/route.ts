@@ -4,6 +4,7 @@ import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
   createSupabaseAuthClient,
+  hasPasswordProvider,
   resolveSession,
   setSessionCookies,
 } from '@/lib/auth/server'
@@ -17,6 +18,15 @@ export async function POST(request: NextRequest) {
     )
     if (!resolved?.user.email) {
       return NextResponse.json({ error: 'Unauthenticated.' }, { status: 401 })
+    }
+    if (!hasPasswordProvider(resolved.user)) {
+      return NextResponse.json(
+        {
+          error: 'This account signs in with Google and does not have a password.',
+          code: 'password_auth_unavailable',
+        },
+        { status: 400 },
+      )
     }
 
     const body = await request.json()

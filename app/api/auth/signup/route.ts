@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     await acceptRequiredSignupPolicies(databaseUser.id)
     const response = NextResponse.json({
       data: {
-        user: await toAppUser(databaseUser.id),
+        user: await toAppUser(databaseUser.id, data.user),
         requiresVerification: false,
       },
     })

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { LoadingState } from '@/components/common/LoadingState'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -55,7 +56,7 @@ export default function PhotoboothPage() {
       </header>
 
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-gf-muted">{t.loading}</div>
+        <LoadingState label={t.loading} />
       ) : frames.length > 0 ? (
         <FrameCarousel
           label={t.title}

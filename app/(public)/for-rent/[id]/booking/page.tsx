@@ -8,6 +8,7 @@ import { Calendar as CalendarIcon, MailCheck, Truck } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { th, enUS } from 'date-fns/locale';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
+import { LoadingState } from '@/components/common/LoadingState';
 import { CameraGlyph } from '@/components/common/CameraGlyph';
 import { Calendar as CalendarUI } from '@/components/ui/calendar';
 import { useAppStore } from '@/store/appStore';
@@ -119,7 +120,7 @@ export default function BookingPage() {
   );
 
   if (!product) {
-    return <div className="p-[60px] text-gf-muted">{t.loading}</div>;
+    return <LoadingState label={t.loading} className="p-[60px]" />;
   }
 
   const selectedRange: DateRange | undefined = booking.startDate
