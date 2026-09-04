@@ -11,6 +11,10 @@ import {
 } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
+  createRentalFlowNotifications,
+  deliverNotificationAfterCommit,
+} from '@/lib/notifications/notificationService'
+import {
   adminDisputeInclude,
   serializeAdminDispute,
 } from '../_utils'
@@ -54,7 +58,7 @@ export async function PATCH(
     const returnId = BigInt(id)
     const existing = await prisma.rentalReturn.findUnique({
       where: { id: returnId },
-      include: { booking: true },
+      include: { booking: { include: { product: { select: { title: true } } } } },
     })
     if (!existing) {
       return NextResponse.json(
@@ -182,6 +186,21 @@ export async function PATCH(
         include: adminDisputeInclude,
       })
     })
+    try {
+      const queued = await createRentalFlowNotifications(prisma, 'damage_resolved', {
+        bookingId: existing.bookingId,
+        bookingNo: existing.booking.bookingNo,
+        productName: existing.booking.product.title,
+        renterId: existing.booking.renterId,
+        ownerId: existing.booking.ownerId,
+        adminDecisionNote: note,
+      })
+      for (const item of queued) {
+        await deliverNotificationAfterCommit(item.notification, item.created)
+      }
+    } catch (error) {
+      console.error('Failed to queue damage-resolution notification', error)
+    }
 
     const response = NextResponse.json({
       data: serializeAdminDispute(updated),

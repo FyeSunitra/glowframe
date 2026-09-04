@@ -186,6 +186,7 @@ model User {
   reviewedBankAccounts  BankAccount[]          @relation("BankAccountVerifier")
   reviews               Review[]
   notifications         Notification[]
+  updatedEmailTemplates EmailTemplate[]        @relation("EmailTemplateUpdater")
   policyAcceptances     UserPolicyAcceptance[]
   photoboothPayments    PhotoboothPayment[]
 
@@ -689,19 +690,55 @@ model Review {
 }
 
 model Notification {
-  id        BigInt    @id @default(autoincrement())
-  userId    BigInt    @map("user_id")
-  title     String    @db.VarChar(160)
-  body      String?
-  linkUrl   String?   @map("link_url")
-  readAt    DateTime? @map("read_at") @db.Timestamptz
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id                     BigInt    @id @default(autoincrement())
+  userId                 BigInt    @map("user_id")
+  type                   String    @default("system") @db.VarChar(80)
+  entityType             String?   @map("entity_type") @db.VarChar(50)
+  entityId               BigInt?   @map("entity_id")
+  dedupeKey              String?   @unique @map("dedupe_key") @db.VarChar(255)
+  title                  String    @db.VarChar(160)
+  body                   String?
+  linkUrl                String?   @map("link_url")
+  readAt                 DateTime? @map("read_at") @db.Timestamptz
+  emailStatus            String    @default("pending") @map("email_status") @db.VarChar(20)
+  emailAttempts          Int       @default(0) @map("email_attempts")
+  emailLastAttemptAt     DateTime? @map("email_last_attempt_at") @db.Timestamptz
+  emailSentAt            DateTime? @map("email_sent_at") @db.Timestamptz
+  emailError             String?   @map("email_error")
+  emailHtml              String?   @map("email_html")
+  emailProviderMessageId String?   @map("email_provider_message_id") @db.VarChar(255)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([readAt])
+  @@index([userId, createdAt])
+  @@index([emailStatus, createdAt])
   @@map("notifications")
+}
+
+model EmailTemplate {
+  id             BigInt   @id @default(autoincrement())
+  key            String   @unique @db.VarChar(80)
+  nameTh         String   @map("name_th") @db.VarChar(160)
+  nameEn         String   @map("name_en") @db.VarChar(160)
+  subjectTh      String   @map("subject_th") @db.VarChar(255)
+  subjectEn      String   @map("subject_en") @db.VarChar(255)
+  bodyTh         String   @map("body_th")
+  bodyEn         String   @map("body_en")
+  recipientRoles String[] @default([]) @map("recipient_roles")
+  isEnabled      Boolean  @default(true) @map("is_enabled")
+  updatedBy      BigInt?  @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  updater User? @relation("EmailTemplateUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@index([isEnabled])
+  @@index([updatedBy])
+  @@map("email_templates")
 }
 
 model PolicyDocument {
@@ -775,24 +812,24 @@ model PhotoboothFrame {
 }
 
 model PhotoboothPayment {
-  id              BigInt                   @id @default(autoincrement())
-  frameId         BigInt                   @map("frame_id")
-  userId          BigInt?                  @map("user_id")
-  guestSessionId  String                   @map("guest_session_id") @db.Uuid
-  referenceId     String                   @unique @map("reference_id") @db.VarChar(100)
-  beamChargeId    String?                  @unique @map("beam_charge_id") @db.VarChar(100)
-  amount          Decimal                  @db.Decimal(10, 2)
-  currency        String                   @default("THB") @db.VarChar(3)
-  status          PhotoboothPaymentStatus  @default(pending)
-  failureCode     String?                  @map("failure_code") @db.VarChar(120)
-  qrExpiresAt     DateTime?                @map("qr_expires_at") @db.Timestamptz
-  accessExpiresAt DateTime?                @map("access_expires_at") @db.Timestamptz
-  paidAt          DateTime?                @map("paid_at") @db.Timestamptz
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id              BigInt                  @id @default(autoincrement())
+  frameId         BigInt                  @map("frame_id")
+  userId          BigInt?                 @map("user_id")
+  guestSessionId  String                  @map("guest_session_id") @db.Uuid
+  referenceId     String                  @unique @map("reference_id") @db.VarChar(100)
+  beamChargeId    String?                 @unique @map("beam_charge_id") @db.VarChar(100)
+  amount          Decimal                 @db.Decimal(10, 2)
+  currency        String                  @default("THB") @db.VarChar(3)
+  status          PhotoboothPaymentStatus @default(pending)
+  failureCode     String?                 @map("failure_code") @db.VarChar(120)
+  qrExpiresAt     DateTime?               @map("qr_expires_at") @db.Timestamptz
+  accessExpiresAt DateTime?               @map("access_expires_at") @db.Timestamptz
+  paidAt          DateTime?               @map("paid_at") @db.Timestamptz
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   frame PhotoboothFrame @relation(fields: [frameId], references: [id], onDelete: Restrict)
-  user  User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user  User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([frameId, status])
   @@index([guestSessionId, status])

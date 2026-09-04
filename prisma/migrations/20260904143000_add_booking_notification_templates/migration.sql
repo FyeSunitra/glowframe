@@ -1,0 +1,8 @@
+INSERT INTO "email_templates"
+  ("key", "name_th", "name_en", "subject_th", "subject_en", "body_th", "body_en")
+VALUES
+  ('booking_preparing', 'กำลังเตรียมสินค้า', 'Rental being prepared', 'กำลังเตรียมสินค้าในรายการ {{booking_ref}}', 'Your rental {{booking_ref}} is being prepared', 'สวัสดี {{user_name}}\n\nเจ้าของกำลังเตรียมสินค้า {{product_name}} สำหรับรายการ {{booking_ref}}', 'Hello {{user_name}},\n\nThe owner is preparing {{product_name}} for booking {{booking_ref}}.'),
+  ('booking_ready_for_pickup', 'สินค้าพร้อมรับ', 'Rental ready for pickup', 'สินค้าในรายการ {{booking_ref}} พร้อมรับแล้ว', 'Your rental {{booking_ref}} is ready for pickup', 'สวัสดี {{user_name}}\n\nสินค้า {{product_name}} พร้อมให้รับแล้ว กรุณาเข้าสู่ GlowFrame เพื่อตรวจสอบรายละเอียด', 'Hello {{user_name}},\n\n{{product_name}} is ready for pickup. Please sign in to GlowFrame for the details.'),
+  ('booking_received', 'ผู้เช่ายืนยันรับสินค้า', 'Renter confirmed receipt', 'ผู้เช่ายืนยันรับสินค้าในรายการ {{booking_ref}} แล้ว', 'The renter confirmed receipt for {{booking_ref}}', 'สวัสดี {{user_name}}\n\nผู้เช่ายืนยันว่าได้รับสินค้า {{product_name}} ในรายการ {{booking_ref}} แล้ว', 'Hello {{user_name}},\n\nThe renter confirmed receipt of {{product_name}} for booking {{booking_ref}}.'),
+  ('booking_completed', 'รายการเช่าเสร็จสิ้น', 'Rental completed', 'รายการเช่า {{booking_ref}} เสร็จสิ้นแล้ว', 'Rental {{booking_ref}} is completed', 'สวัสดี {{user_name}}\n\nเจ้าของยืนยันรับคืนสินค้า {{product_name}} แล้ว รายการเช่า {{booking_ref}} เสร็จสิ้น', 'Hello {{user_name}},\n\nThe owner confirmed the returned {{product_name}}. Booking {{booking_ref}} is complete.')
+ON CONFLICT ("key") DO NOTHING;

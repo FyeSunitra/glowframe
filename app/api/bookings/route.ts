@@ -14,6 +14,10 @@ import {
   setSessionCookies,
 } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
+import {
+  createRentalFlowNotifications,
+  deliverNotificationAfterCommit,
+} from '@/lib/notifications/notificationService'
 import { getBookingRequestContext } from './_auth'
 import { renterBookingInclude, serializeRenterBooking } from './_utils'
 
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
     }
 
     let booking
+    let queuedNotifications: Awaited<ReturnType<typeof createRentalFlowNotifications>> = []
     try {
       booking = await prisma.$transaction(async (transaction) => {
       const product = await transaction.product.findFirst({
@@ -274,7 +279,7 @@ export async function POST(request: NextRequest) {
         .sub(platformFeeAmount)
         .add(deliveryFee)
 
-      return transaction.booking.create({
+      const createdBooking = await transaction.booking.create({
         data: {
           bookingNo: createBookingNo(),
           productId,
@@ -309,6 +314,19 @@ export async function POST(request: NextRequest) {
         },
         include: renterBookingInclude,
       })
+      try {
+        queuedNotifications = await createRentalFlowNotifications(transaction, 'booking_request_created', {
+          bookingId: createdBooking.id,
+          bookingNo: createdBooking.bookingNo,
+          productName: product.title,
+          renterId: createdBooking.renterId,
+          ownerId: createdBooking.ownerId,
+          rentalDates: `${startDate.toISOString().slice(0, 10)} - ${endDate.toISOString().slice(0, 10)}`,
+        })
+      } catch (error) {
+        console.error('Failed to queue booking-created notification', error)
+      }
+      return createdBooking
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       })
@@ -320,6 +338,10 @@ export async function POST(request: NextRequest) {
         console.error('Failed to remove orphaned payment proof', cleanupError)
       }
       throw error
+    }
+
+    for (const queued of queuedNotifications) {
+      await deliverNotificationAfterCommit(queued.notification, queued.created)
     }
 
     const response = NextResponse.json(

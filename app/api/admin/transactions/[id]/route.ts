@@ -8,6 +8,10 @@ import {
 } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
+  createRentalFlowNotifications,
+  deliverNotificationAfterCommit,
+} from '@/lib/notifications/notificationService'
+import {
   adminTransactionInclude,
   serializeAdminTransaction,
 } from '../_utils'
@@ -46,6 +50,15 @@ export async function PATCH(
         status: true,
         bookingId: true,
         submittedAmount: true,
+        payerId: true,
+        booking: {
+          select: {
+            bookingNo: true,
+            renterId: true,
+            ownerId: true,
+            product: { select: { title: true } },
+          },
+        },
       },
     })
     if (!existing) {
@@ -58,6 +71,7 @@ export async function PATCH(
       )
     }
 
+    let queuedNotifications: Awaited<ReturnType<typeof createRentalFlowNotifications>> = []
     const payment = await prisma.$transaction(async (transaction) => {
       await transaction.booking.update({
         where: { id: existing.bookingId },
@@ -67,7 +81,7 @@ export async function PATCH(
             : BookingStatus.paymentRejected,
         },
       })
-      return transaction.payment.update({
+      const updatedPayment = await transaction.payment.update({
         where: { id: BigInt(id) },
         data: {
           status: approve ? PaymentStatus.approved : PaymentStatus.rejected,
@@ -80,7 +94,24 @@ export async function PATCH(
         },
         include: adminTransactionInclude,
       })
+      const event = approve ? 'payment_approved' : 'payment_rejected'
+      try {
+        queuedNotifications = await createRentalFlowNotifications(transaction, event, {
+          bookingId: existing.bookingId,
+          bookingNo: existing.booking.bookingNo,
+          productName: existing.booking.product.title,
+          renterId: existing.booking.renterId,
+          ownerId: existing.booking.ownerId,
+          rejectionReason: reason || 'Payment evidence could not be verified.',
+        })
+      } catch (error) {
+        console.error('Failed to queue payment-review notification', error)
+      }
+      return updatedPayment
     })
+    for (const queued of queuedNotifications) {
+      await deliverNotificationAfterCommit(queued.notification, queued.created)
+    }
     const response = NextResponse.json({
       data: serializeAdminTransaction(payment),
     })

@@ -1,17 +1,46 @@
 import { NextResponse } from 'next/server'
 
-export const EMAIL_TEMPLATES = [
-  { id: 1, key: 'welcome', name: 'Welcome', subject: 'Welcome to GlowFrame, {{user_name}}!', lastEdited: '1 Jun 2026', lastEditedBy: 'Admin' },
-  { id: 2, key: 'booking_confirmed', name: 'Booking Confirmed', subject: 'Your booking #{{booking_ref}} is confirmed', lastEdited: '10 Jun 2026', lastEditedBy: 'Admin' },
-  { id: 3, key: 'booking_cancelled', name: 'Booking Cancelled', subject: 'Booking #{{booking_ref}} has been cancelled', lastEdited: '10 Jun 2026', lastEditedBy: 'Admin' },
-  { id: 4, key: 'booking_reminder', name: 'Booking Reminder', subject: 'Your rental starts tomorrow — booking #{{booking_ref}}', lastEdited: '15 Jun 2026', lastEditedBy: 'Admin' },
-  { id: 5, key: 'payout_processed', name: 'Payout Processed', subject: 'Your payout of ฿{{amount}} has been sent', lastEdited: '15 Jun 2026', lastEditedBy: 'Admin' },
-  { id: 6, key: 'id_verification_approved', name: 'ID Verified', subject: 'Your identity has been verified', lastEdited: '1 Jul 2026', lastEditedBy: 'Admin' },
-  { id: 7, key: 'id_verification_rejected', name: 'ID Rejected', subject: 'We could not verify your identity', lastEdited: '1 Jul 2026', lastEditedBy: 'Admin' },
-  { id: 8, key: 'account_suspended', name: 'Account Suspended', subject: 'Your GlowFrame account has been suspended', lastEdited: '5 Jul 2026', lastEditedBy: 'Admin' },
-  { id: 9, key: 'password_reset', name: 'Password Reset', subject: 'Reset your GlowFrame password', lastEdited: '5 Jul 2026', lastEditedBy: 'Admin' },
-]
+import { getAdminRequestContext } from '@/lib/auth/adminRequest'
+import { EMAIL_TEMPLATE_VARIABLES } from '@/lib/email/emailTemplateUtils'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  return NextResponse.json({ data: EMAIL_TEMPLATES })
+  try {
+    const admin = await getAdminRequestContext()
+    if (!admin) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+
+    const templates = await prisma.emailTemplate.findMany({
+      where: { key: { in: ['booking_status_update', 'return_reminder'] } },
+      orderBy: { key: 'asc' },
+      include: { updater: { select: { displayName: true } } },
+    })
+    return NextResponse.json({ data: templates.map(serializeTemplate) })
+  } catch (error) {
+    console.error('Failed to load email templates', error)
+    return NextResponse.json({ error: 'Unable to load email templates.' }, { status: 500 })
+  }
+}
+
+export function serializeTemplate(template: {
+  id: bigint
+  key: string
+  nameTh: string
+  nameEn: string
+  subjectTh: string
+  subjectEn: string
+  bodyTh: string
+  bodyEn: string
+  recipientRoles: string[]
+  isEnabled: boolean
+  updatedAt: Date
+  updater?: { displayName: string } | null
+}) {
+  return {
+    id: Number(template.id), key: template.key, nameTh: template.nameTh, nameEn: template.nameEn,
+    subjectTh: template.subjectTh, subjectEn: template.subjectEn, bodyTh: template.bodyTh,
+    bodyEn: template.bodyEn, recipientRoles: template.recipientRoles,
+    isEnabled: template.isEnabled, updatedAt: template.updatedAt.toISOString(),
+    updatedByName: template.updater?.displayName ?? null,
+    availableVariables: EMAIL_TEMPLATE_VARIABLES[template.key] ?? [],
+  }
 }

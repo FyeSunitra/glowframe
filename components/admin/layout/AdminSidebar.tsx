@@ -12,6 +12,7 @@ import {
   Truck,
   BadgeDollarSign,
   ImagePlus,
+  Mail,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,12 @@ const SECTIONS = [
       { href: '/admin/trust/reports', labelKey: 'reports',     icon: Flag },
       { href: '/admin/trust/disputes', labelKey: 'disputes',     icon: AlertTriangle }, // out of scope
       // { href: '/admin/trust/fraud',    labelKey: 'Fraud Signals', icon: Zap },           // out of scope
+    ],
+  },
+  {
+    labelKey: 'communications',
+    items: [
+      { href: '/admin/comms/email-templates', labelKey: 'emailTemplates', icon: Mail },
     ],
   },
   // Financial — out of scope

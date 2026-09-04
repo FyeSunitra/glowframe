@@ -7,6 +7,10 @@ import {
   ReturnStatus,
 } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import {
+  createRentalFlowNotifications,
+  deliverNotificationAfterCommit,
+} from '@/lib/notifications/notificationService'
 import { getBookingRequestContext } from '../../_auth'
 import {
   renterBookingInclude,
@@ -31,7 +35,11 @@ export async function PATCH(
     const action = typeof body?.action === 'string' ? body.action : ''
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { status: true, deliveryMethod: true, renterId: true },
+      select: {
+        status: true, deliveryMethod: true, renterId: true, ownerId: true,
+        bookingNo: true, product: { select: { title: true } },
+        owner: { select: { displayName: true } },
+      },
     })
     if (!booking) {
       return NextResponse.json({ error: 'Booking was not found.' }, { status: 404 })
@@ -130,6 +138,7 @@ export async function PATCH(
       where: { id: bookingId },
       include: renterBookingInclude,
     })
+    await notifyRenterBookingAction({ booking, bookingId, action, body })
     const response = NextResponse.json({
       data: serializeRenterBooking(updated, 'renter'),
     })
@@ -146,6 +155,46 @@ export async function PATCH(
       { error: 'Unable to update the rental.' },
       { status: 500 },
     )
+  }
+}
+
+async function notifyRenterBookingAction({
+  booking,
+  bookingId,
+  action,
+  body,
+}: {
+  booking: {
+    renterId: bigint
+    ownerId: bigint
+    bookingNo: string
+    product: { title: string }
+    owner: { displayName: string }
+  }
+  bookingId: bigint
+  action: string
+  body: Record<string, unknown>
+}) {
+  const event = {
+    confirm_received: 'booking_received',
+    request_return: 'return_submitted',
+  }[action] as 'booking_received' | 'return_submitted' | undefined
+  if (!event) return
+
+  try {
+    const queued = await createRentalFlowNotifications(prisma, event, {
+      bookingId,
+      bookingNo: booking.bookingNo,
+      productName: booking.product.title,
+      renterId: booking.renterId,
+      ownerId: booking.ownerId,
+      trackingNumber: typeof body.trackingNumber === 'string' ? body.trackingNumber : '-',
+    })
+    for (const item of queued) {
+      await deliverNotificationAfterCommit(item.notification, item.created)
+    }
+  } catch (error) {
+    console.error('Failed to queue renter booking notification', error)
   }
 }
 

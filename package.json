@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "email:test": "tsx scripts/test-gmail-smtp.ts",
     "admin:promote": "tsx scripts/promote-admin.ts",
     "policy:seed": "tsx scripts/seed-policies.ts"
   },
@@ -29,6 +30,7 @@
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "next-cloudinary": "^6.17.5",
+    "nodemailer": "^9.1.1",
     "pg": "^8.22.0",
     "prisma": "^7.8.0",
     "qrcode.react": "^4.2.0",
@@ -46,6 +48,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "20.19.43",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

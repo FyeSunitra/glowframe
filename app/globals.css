@@ -146,7 +146,9 @@
   --gf-brown-800: #522c1f;
   --gf-brown-700: #5C3A2A;
   --gf-brown-500: #8B6552;
+  --gf-brown-400: #B9A69C;
   --gf-brown-300: #C7A896;
+  --gf-placeholder: #B9A69C;
   --gf-pink-600:  #E9A6B3;
   --gf-pink-500:  #F0BFC9;
   --gf-pink-300:  #F8DEE3;
@@ -215,7 +217,9 @@
   --color-gf-brown-800: var(--gf-brown-800);
   --color-gf-brown-700: var(--gf-brown-700);
   --color-gf-brown-500: var(--gf-brown-500);
+  --color-gf-brown-400: var(--gf-brown-400);
   --color-gf-brown-300: var(--gf-brown-300);
+  --color-gf-placeholder: var(--gf-placeholder);
   --color-gf-pink-600:  var(--gf-pink-600);
   --color-gf-pink-500:  var(--gf-pink-500);
   --color-gf-pink-300:  var(--gf-pink-300);
@@ -247,6 +251,14 @@
   a { text-decoration: none; color: inherit; }
   button { font-family: inherit; cursor: pointer; }
   input, textarea, select { font-family: inherit; }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--gf-placeholder) !important;
+    opacity: 1;
+  }
+  [data-slot='select-trigger'][data-placeholder] {
+    color: var(--gf-placeholder) !important;
+  }
   ::selection { background: var(--gf-pink-500); color: var(--gf-brown-900); }
 }
 
