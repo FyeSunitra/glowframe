@@ -1,12 +1,13 @@
 import { Camera } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import type { PhotoboothFrameStyle } from '@/types/photobooth'
+import type { PhotoboothDefaultFrameLayout, PhotoboothFrameStyle } from '@/types/photobooth'
 
 interface FramePreviewProps {
   style: PhotoboothFrameStyle
   color: string
   count?: number
+  layout?: PhotoboothDefaultFrameLayout
   compact?: boolean
   className?: string
 }
@@ -15,16 +16,19 @@ export function FramePreview({
   style,
   color,
   count = 3,
+  layout = 'portrait',
   compact = false,
   className,
 }: FramePreviewProps) {
   return (
     <div
       className={cn(
-        'relative mx-auto flex w-full max-w-[210px] flex-col overflow-hidden shadow-[0_14px_34px_rgba(76,54,48,0.16)]',
-        style === 'minimal' ? 'gap-1.5 p-2.5 pb-8' : 'gap-2 p-3 pb-10',
+        'relative mx-auto w-full max-w-[210px] overflow-hidden shadow-[0_14px_34px_rgba(76,54,48,0.16)]',
+        layout === 'grid' ? 'grid grid-cols-2 gap-2 p-3 pb-10' : 'flex flex-col gap-2 p-3 pb-10',
+        style === 'minimal' && 'gap-1.5 p-2.5 pb-8',
         style === 'film' && 'px-6',
-        compact ? 'max-w-[150px]' : 'aspect-[3/5]',
+        compact ? 'max-w-[150px]' : 'aspect-[3/4]',
+        layout === 'grid' && (count >= 6 ? 'grid-rows-3' : count === 2 ? 'grid-rows-1' : 'grid-rows-2'),
         className,
       )}
       style={{ backgroundColor: color }}
@@ -41,7 +45,9 @@ export function FramePreview({
         <div
           key={index}
           className={cn(
-            'relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-white/85',
+            'relative flex min-h-0 items-center justify-center overflow-hidden bg-white/85',
+            layout === 'portrait' && 'flex-1',
+            layout === 'grid' && 'h-full',
             style === 'classic' && 'rounded-[3px]',
             style === 'minimal' && 'border border-black/10',
           )}

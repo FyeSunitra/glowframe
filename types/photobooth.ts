@@ -1,4 +1,5 @@
 export type PhotoboothFrameStyle = 'classic' | 'film' | 'minimal'
+export type PhotoboothDefaultFrameLayout = 'portrait' | 'grid'
 
 export type PhotoboothOutputType = 'photo' | 'gif'
 

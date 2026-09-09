@@ -46,6 +46,7 @@ import type {
 
 type StudioPhase = 'setup' | 'camera' | 'result'
 type ResultView = 'photo' | 'motion'
+type DefaultPhotoCount = 4 | 6
 
 const COUNTDOWN_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10] as const
 type CountdownSeconds = (typeof COUNTDOWN_OPTIONS)[number]
@@ -58,6 +59,7 @@ const FRAME_COLORS = [
   '#9fc7df',
   '#4c3630',
 ]
+const DEFAULT_PHOTO_COUNTS: DefaultPhotoCount[] = [4, 6]
 
 export default function PhotoboothStudioPage() {
   return (
@@ -75,7 +77,7 @@ function PhotoboothStudio() {
   const paymentId = searchParams.get('paymentId')
   const frameStyle = parseFrameStyle(searchParams.get('frame'))
   const [phase, setPhase] = useState<StudioPhase>('setup')
-  const [selectedPhotoCount, setPhotoCount] = useState(3)
+  const [selectedPhotoCount, setPhotoCount] = useState<DefaultPhotoCount>(4)
   const [frameColor, setFrameColor] = useState(() => defaultFrameColor(frameStyle))
   const [countdownSeconds, setCountdownSeconds] = useState<CountdownSeconds>(8)
   const [noticeAccepted, setNoticeAccepted] = useState(false)
@@ -217,7 +219,7 @@ function PhotoboothStudio() {
 
       const photoBlob = databaseFrame
         ? await createFramedPhoto(shots, databaseFrame)
-        : await createPhotoStrip(shots, frameColor, frameStyle)
+        : await createPhotoStrip(shots, frameColor, frameStyle, 'grid')
       if (captureSessionRef.current !== session) return
       setPhotoUrl(URL.createObjectURL(photoBlob))
 
@@ -629,7 +631,7 @@ interface SetupPanelProps {
   frameColor: string
   countdownSeconds: CountdownSeconds
   cameraError: string | null
-  onPhotoCountChange: (value: 2 | 3 | 4) => void
+  onPhotoCountChange: (value: DefaultPhotoCount) => void
   onFrameColorChange: (value: string) => void
   onCountdownChange: (value: CountdownSeconds) => void
   onOpenCamera: () => void
@@ -711,7 +713,15 @@ function SetupPanel({
           {databaseFrame ? (
             <DatabaseFramePreview frame={databaseFrame} />
           ) : (
-            <FramePreview style={style} color={frameColor} count={photoCount} />
+            <div className="aspect-[3/4] h-full max-w-full">
+              <FramePreview
+                style={style}
+                color={frameColor}
+                count={photoCount}
+                layout="grid"
+                className="h-full max-w-none"
+              />
+            </div>
           )}
         </div>
         <div className="mt-3 text-center text-sm font-semibold text-gf-brown-700">{styleName}</div>
@@ -733,11 +743,11 @@ function SetupPanel({
             </div>
           ) : (
             <SegmentedOptions
-              options={([2, 3, 4] as const).map((value) => ({
+              options={DEFAULT_PHOTO_COUNTS.map((value) => ({
                 value,
                 label: `${value} ${t.shots}`,
               }))}
-              value={photoCount as 2 | 3 | 4}
+              value={photoCount as DefaultPhotoCount}
               onChange={onPhotoCountChange}
             />
           )}
@@ -771,12 +781,6 @@ function SetupPanel({
                   aria-label={`${t.frameColor} ${color}`}
                   aria-pressed={frameColor === color}
                 >
-                  {frameColor === color && (
-                    <Check
-                      className={color === '#4c3630' ? 'text-white' : 'text-gf-brown-900'}
-                      size={18}
-                    />
-                  )}
                 </button>
               ))}
             </div>
@@ -863,7 +867,7 @@ function SettingSection({
   )
 }
 
-function SegmentedOptions<T extends number>({
+function SegmentedOptions<T extends string | number>({
   options,
   value,
   onChange,

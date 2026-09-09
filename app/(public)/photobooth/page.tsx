@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Breadcrumb } from '@/components/common/Breadcrumb'
 import { LoadingState } from '@/components/common/LoadingState'
+import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -57,12 +58,17 @@ export default function PhotoboothPage() {
 
       {isLoading ? (
         <LoadingState label={t.loading} />
-      ) : frames.length > 0 ? (
+      ) : (
         <FrameCarousel
           label={t.title}
           previousLabel={t.previousFrame}
           nextLabel={t.nextFrame}
         >
+          <DefaultFrameCard
+            name={t.classic}
+            actionLabel={t.chooseStyle}
+            onSelect={() => router.push('/photobooth/studio')}
+          />
           {frames.map((frame) => (
             <DatabaseFrameCard
               key={frame.id}
@@ -80,10 +86,6 @@ export default function PhotoboothPage() {
             />
           ))}
         </FrameCarousel>
-      ) : (
-        <div className="rounded-[8px] border border-dashed border-gf-line bg-white py-16 text-center text-sm text-gf-muted">
-          {t.noFrames}
-        </div>
       )}
 
       <div className="mt-6 flex items-start gap-2.5 border-t border-gf-line pt-5 text-xs leading-5 text-gf-muted">
@@ -106,6 +108,51 @@ export default function PhotoboothPage() {
         />
       )}
     </div>
+  )
+}
+
+function DefaultFrameCard({
+  name,
+  actionLabel,
+  onSelect,
+}: {
+  name: string
+  actionLabel: string
+  onSelect: () => void
+}) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+
+  const handlePress = () => {
+    if (isDetailsOpen) {
+      onSelect()
+      return
+    }
+    setIsDetailsOpen(true)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handlePress}
+      aria-label={name}
+      aria-pressed={isDetailsOpen}
+      className="flex h-[420px] w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:w-[340px] lg:w-[360px]"
+    >
+      <div className="relative aspect-[3/4] h-full max-w-full">
+        <FramePreview
+          style="classic"
+          color="#f4ccd5"
+          count={4}
+          layout="grid"
+          className="h-full max-w-none"
+        />
+        <FrameDetailsOverlay
+          open={isDetailsOpen}
+          name={name}
+          actionLabel={actionLabel}
+        />
+      </div>
+    </button>
   )
 }
 

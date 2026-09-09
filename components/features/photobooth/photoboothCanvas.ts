@@ -1,4 +1,8 @@
-import type { PhotoboothFrame, PhotoboothFrameStyle } from '@/types/photobooth'
+import type {
+  PhotoboothDefaultFrameLayout,
+  PhotoboothFrame,
+  PhotoboothFrameStyle,
+} from '@/types/photobooth'
 
 const MAX_PHOTO_OUTPUT_SIDE = 4096
 const MAX_GIF_OUTPUT_SIDE = 960
@@ -23,16 +27,19 @@ export async function createPhotoStrip(
   sources: string[],
   frameColor: string,
   style: PhotoboothFrameStyle,
+  layout: PhotoboothDefaultFrameLayout = 'portrait',
 ) {
   const images = await Promise.all(sources.map(loadImage))
-  const width = 720
+  const width = 900
+  const height = 1200
   const sidePadding = style === 'minimal' ? 28 : style === 'film' ? 76 : 52
   const topPadding = style === 'minimal' ? 28 : 48
   const gap = style === 'minimal' ? 10 : 18
   const footer = style === 'minimal' ? 72 : 92
-  const photoWidth = width - sidePadding * 2
-  const photoHeight = Math.round(photoWidth * 0.75)
-  const height = topPadding + images.length * photoHeight + (images.length - 1) * gap + footer
+  const columns = layout === 'grid' ? 2 : 1
+  const rows = Math.ceil(images.length / columns)
+  const photoWidth = Math.floor((width - sidePadding * 2 - (columns - 1) * gap) / columns)
+  const photoHeight = Math.floor((height - topPadding - footer - (rows - 1) * gap) / rows)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -43,12 +50,15 @@ export async function createPhotoStrip(
   if (style === 'film') drawFilmRails(context, width, height)
 
   images.forEach((image, index) => {
-    const y = topPadding + index * (photoHeight + gap)
-    drawImageCover(context, image, sidePadding, y, photoWidth, photoHeight)
+    const column = index % columns
+    const row = Math.floor(index / columns)
+    const x = sidePadding + column * (photoWidth + gap)
+    const y = topPadding + row * (photoHeight + gap)
+    drawImageCover(context, image, x, y, photoWidth, photoHeight)
     if (style === 'minimal') {
       context.strokeStyle = 'rgba(76,54,48,0.18)'
       context.lineWidth = 2
-      context.strokeRect(sidePadding, y, photoWidth, photoHeight)
+      context.strokeRect(x, y, photoWidth, photoHeight)
     }
   })
 
