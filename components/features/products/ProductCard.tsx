@@ -33,6 +33,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             alt={product.name}
             fill
             priority={priority}
+            loading={priority ? 'eager' : 'lazy'}
             sizes="(max-width: 640px) 100vw, 300px"
             className="object-cover"
           />
@@ -51,10 +52,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         <div className="text-[15px] font-bold text-gf-brown-900">
           {money(product.price)} THB / {locale === 'th' ? '1 วัน' : '1 Day'}
         </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-gf-yellow">
-            {product.rating.toFixed(1)}
-          </span>
+        <div className="mt-2 flex justify-end">
           <span className="text-xs font-semibold text-gf-brown-700 underline">
             {translateText(locale, 'More Info.')}
           </span>

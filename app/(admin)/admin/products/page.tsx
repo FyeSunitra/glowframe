@@ -42,13 +42,14 @@ const listingSchema = z.object({
 type ListingForm = z.infer<typeof listingSchema>
 type RejectForm = { reason: string }
 
-function ProductRowActions({ row, labels, onApprove, onReject, onEdit, onArchive, onDelete }: {
+function ProductRowActions({ row, labels, onApprove, onReject, onEdit, onArchive, onRestore, onDelete }: {
   row: AdminProduct
-  labels: { approve: string; reject: string; edit: string; archive: string; delete: string }
+  labels: { approve: string; reject: string; edit: string; archive: string; restore: string; delete: string }
   onApprove: (row: AdminProduct) => void
   onReject: (row: AdminProduct) => void
   onEdit: (row: AdminProduct) => void
   onArchive: (row: AdminProduct) => void
+  onRestore: (row: AdminProduct) => void
   onDelete: (row: AdminProduct) => void
 }) {
   return (
@@ -64,7 +65,11 @@ function ProductRowActions({ row, labels, onApprove, onReject, onEdit, onArchive
         {row.status === 'pending' && <DropdownMenuItem onClick={() => onReject(row)}>{labels.reject}</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => onEdit(row)}>{labels.edit}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onArchive(row)}>{labels.archive}</DropdownMenuItem>
+        {row.status === 'archived' ? (
+          <DropdownMenuItem onClick={() => onRestore(row)}>{labels.restore}</DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={() => onArchive(row)}>{labels.archive}</DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onClick={() => onDelete(row)}>{labels.delete}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -108,6 +113,11 @@ export default function ProductsPage() {
     mutationFn: async (id: number) =>
       unwrapApiResponse(await adminProductService.update(id, { action: 'archive' })),
     onSuccess: () => { invalidate(); showToast(t.archivedToast) },
+  })
+  const restoreMutation = useMutation({
+    mutationFn: async (id: number) =>
+      unwrapApiResponse(await adminProductService.update(id, { action: 'restore' })),
+    onSuccess: () => { invalidate(); showToast(t.restoredToast) },
   })
   const deleteMutation = useMutation({
     mutationFn: async (id: number) =>
@@ -195,9 +205,6 @@ export default function ProductsPage() {
     { key: 'owner', header: t.owner, render: (row: AdminProduct) => row.owner.displayName },
     { key: 'price', header: t.pricePerDay, render: (row: AdminProduct) => `${money(row.price)} THB` },
     { key: 'deposit', header: t.deposit, render: (row: AdminProduct) => `${money(row.deposit)} THB` },
-    { key: 'rating', header: t.rating, render: (row: AdminProduct) => (
-      <span className="text-gf-yellow text-[13px]">{'★'.repeat(row.rating)}</span>
-    )},
     { key: 'bookings', header: t.bookings, render: (row: AdminProduct) => row.bookingCount },
     { key: 'status', header: t.status, render: (row: AdminProduct) => <StatusBadge status={row.status} /> },
     { key: 'created', header: t.created, render: (row: AdminProduct) => row.createdAt },
@@ -209,6 +216,7 @@ export default function ProductsPage() {
         onReject={openReject}
         onEdit={openEdit}
         onArchive={(r) => openConfirm(t.archiveTitle, false, () => { archiveMutation.mutate(r.id); setConfirmOpen(false) })}
+        onRestore={(r) => openConfirm(t.restoreTitle, false, () => { restoreMutation.mutate(r.id); setConfirmOpen(false) })}
         onDelete={setDeleteTarget}
       />
     )},
@@ -295,11 +303,10 @@ export default function ProductsPage() {
               { label: t.pricePerDay, value: `${money(selectedProduct.price)} THB` },
               { label: t.deposit, value: `${money(selectedProduct.deposit)} THB` },
               { label: t.bookings, value: selectedProduct.bookingCount },
-              { label: t.rating, value: '★'.repeat(selectedProduct.rating), yellow: true },
             ].map(r => (
               <div key={r.label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b border-gf-line py-3 text-[13px]">
                 <span className="text-gf-muted">{r.label}</span>
-                <span className={cn('break-words font-semibold text-gf-brown-900', r.yellow && 'text-gf-yellow')}>{r.value}</span>
+                <span className="break-words font-semibold text-gf-brown-900">{r.value}</span>
               </div>
             ))}
             {selectedProduct.extraDetails && (

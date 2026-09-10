@@ -5,6 +5,7 @@ import { getAdminRequestContext } from '@/lib/auth/adminRequest'
 import { setSessionCookies } from '@/lib/auth/server'
 import { BankAccountVerificationStatus } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { notifyAccountReview } from '@/lib/notifications/accountNotificationService'
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -27,6 +28,14 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     })
     if (claimed.count !== 1) return NextResponse.json({ error: 'This bank account has already been reviewed.' }, { status: 409 })
     const account = await prisma.bankAccount.findUniqueOrThrow({ where: { id: BigInt(id) }, include: adminBankAccountInclude })
+    await notifyAccountReview({
+      kind: 'bank_account',
+      recordId: account.id,
+      userId: account.userId,
+      status: approve ? 'approved' : 'rejected',
+      displayName: account.user.displayName,
+      detail: account.verificationReason,
+    })
     const response = NextResponse.json({ data: serializeAdminBankAccount(account) })
     if (admin.refreshedSession) setSessionCookies(response, admin.refreshedSession)
     return response

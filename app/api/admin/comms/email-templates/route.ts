@@ -10,7 +10,7 @@ export async function GET() {
     if (!admin) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
 
     const templates = await prisma.emailTemplate.findMany({
-      where: { key: { in: ['booking_status_update', 'return_reminder'] } },
+      where: { key: { in: ['booking_status_update', 'return_reminder', 'account_security_update'] } },
       orderBy: { key: 'asc' },
       include: { updater: { select: { displayName: true } } },
     })

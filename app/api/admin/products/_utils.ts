@@ -16,10 +16,6 @@ export const adminProductInclude = {
   accessories: { include: { accessory: { select: { name: true } } } },
   customAccessories: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
   media: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
-  reviews: {
-    where: { isHidden: false },
-    select: { rating: true },
-  },
   _count: { select: { bookings: true } },
 } satisfies Prisma.ProductInclude
 
@@ -28,11 +24,6 @@ export type AdminProductRow = Prisma.ProductGetPayload<{
 }>
 
 export function serializeAdminProduct(product: AdminProductRow) {
-  const averageRating = product.reviews.length
-    ? product.reviews.reduce((total, review) => total + review.rating, 0) /
-      product.reviews.length
-    : 0
-
   return {
     id: Number(product.id),
     name: product.title,
@@ -40,7 +31,6 @@ export function serializeAdminProduct(product: AdminProductRow) {
     price: Number(product.pricePerDay),
     deposit: Number(product.depositAmount),
     color: productColor(Number(product.id)),
-    rating: Math.round(averageRating),
     bookingCount: product._count.bookings,
     status: statusForUi(product.status),
     createdAt: product.createdAt.toISOString().slice(0, 10),

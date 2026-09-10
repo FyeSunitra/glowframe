@@ -3,6 +3,7 @@ import { VerificationStatus } from '@/lib/generated/prisma/client'
 import { getAdminRequestContext } from '@/lib/auth/adminRequest'
 import { setSessionCookies } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
+import { notifyAccountReview } from '@/lib/notifications/accountNotificationService'
 
 export async function PATCH(
   request: NextRequest,
@@ -62,12 +63,22 @@ export async function PATCH(
         createdAt: true,
         user: {
           select: {
+            id: true,
             displayName: true,
             email: true,
             identityVerifications: { select: { id: true } },
           },
         },
       },
+    })
+
+    await notifyAccountReview({
+      kind: 'identity_verification',
+      recordId: record.id,
+      userId: record.user.id,
+      status: action,
+      displayName: record.user.displayName,
+      detail: record.rejectionReason,
     })
 
     const response = NextResponse.json({

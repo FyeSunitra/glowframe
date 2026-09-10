@@ -26,7 +26,6 @@ export interface Product {
   price: number;
   deposit: number;
   color: string;
-  rating: number;
   category?: {
     id: number;
     name: string;

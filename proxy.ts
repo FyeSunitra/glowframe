@@ -87,5 +87,6 @@ export const config = {
     '/api/user/:path*',
     '/api/bookings/:path*',
     '/api/wallet/:path*',
+    '/api/notifications/:path*',
   ],
 }

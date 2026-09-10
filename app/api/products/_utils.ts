@@ -26,10 +26,6 @@ export const publicProductInclude = {
       },
     },
   },
-  reviews: {
-    where: { isHidden: false },
-    select: { rating: true },
-  },
   bookings: {
     where: {
       status: {
@@ -48,12 +44,6 @@ export type PublicProductRow = Prisma.ProductGetPayload<{
 }>
 
 export function serializeProduct(product: PublicProductRow) {
-  const rating =
-    product.reviews.length > 0
-      ? product.reviews.reduce((sum, review) => sum + review.rating, 0) /
-        product.reviews.length
-      : 5
-
   return {
     id: Number(product.id),
     name: product.title,
@@ -61,7 +51,6 @@ export function serializeProduct(product: PublicProductRow) {
     price: Number(product.pricePerDay),
     deposit: Number(product.depositAmount),
     color: productColor(Number(product.id)),
-    rating,
     category: {
       id: Number(product.category.id),
       name: product.category.name,

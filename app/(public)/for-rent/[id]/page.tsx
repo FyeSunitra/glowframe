@@ -13,7 +13,6 @@ import {
   PackageCheck,
   Play,
   ShieldCheck,
-  Star,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/common/Breadcrumb';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -81,7 +80,8 @@ export default function ProductDetailPage() {
                   alt={`${t.image}: ${product.name}`}
                   fill
                   priority
-                  unoptimized
+                  loading="eager"
+                  sizes="(max-width: 900px) 100vw, (max-width: 1440px) 50vw, 620px"
                   className="object-cover"
                 />
               </button>
@@ -143,7 +143,7 @@ export default function ProductDetailPage() {
                       src={item.url}
                       alt=""
                       fill
-                      unoptimized
+                      sizes="(max-width: 640px) 25vw, 140px"
                       className="object-cover"
                     />
                   ) : (
@@ -175,10 +175,6 @@ export default function ProductDetailPage() {
             {product.name}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gf-muted">
-            <span className="flex items-center gap-1.5 font-semibold text-gf-brown-700">
-              <Star size={16} fill="currentColor" className="text-gf-yellow-500" />
-              {product.rating.toFixed(1)}
-            </span>
             {product.owner && (
               <span className="flex items-center gap-1.5">
                 {product.owner.verified && <BadgeCheck size={17} className="text-gf-pink-600" />}

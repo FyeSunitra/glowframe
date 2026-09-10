@@ -1,6 +1,7 @@
 export const EMAIL_TEMPLATE_VARIABLES: Record<string, string[]> = {
   booking_status_update: ['{{user_name}}', '{{booking_ref}}', '{{product_name}}', '{{rental_dates}}', '{{tracking_number}}', '{{rejection_reason}}', '{{damage_description}}', '{{damage_amount}}', '{{admin_decision_note}}', '{{action_url}}'],
   return_reminder: ['{{user_name}}', '{{booking_ref}}', '{{product_name}}', '{{action_url}}'],
+  account_security_update: ['{{user_name}}', '{{verification_type}}', '{{verification_status}}', '{{rejection_reason}}', '{{action_url}}'],
 }
 
 export const EMAIL_TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
@@ -12,6 +13,8 @@ export const EMAIL_TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   tracking_number: 'TH1234567890',
   amount: '1,250.00 THB',
   action_url: 'https://glowframe-red.vercel.app/my-rentals?booking=1',
+  verification_type: 'Identity verification',
+  verification_status: 'Approved',
 }
 
 export function renderEmailTemplate(template: string, variables: Record<string, string>) {

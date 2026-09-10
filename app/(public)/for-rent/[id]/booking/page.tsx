@@ -248,6 +248,7 @@ export default function BookingPage() {
                 alt={product.name}
                 fill
                 priority
+                loading="eager"
                 sizes="(max-width: 900px) 100vw, 300px"
                 className="object-contain"
               />

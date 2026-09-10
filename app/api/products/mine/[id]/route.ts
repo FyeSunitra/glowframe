@@ -142,6 +142,14 @@ function statusAction(action: OwnerProductAction, status: ProductStatus) {
   if (action === 'reopen' && status === ProductStatus.hidden) {
     return valid({ status: ProductStatus.approved })
   }
+  if (action === 'reopen' && status === ProductStatus.archived) {
+    return valid({
+      status: ProductStatus.pending,
+      rejectionReason: null,
+      approvedBy: null,
+      approvedAt: null,
+    })
+  }
   return invalid('This action is not available for the current product status.')
 }
 

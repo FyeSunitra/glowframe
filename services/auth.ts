@@ -9,6 +9,8 @@ import type {
   ChangePasswordPayload,
 } from '@/types/auth'
 
+let sessionRequest: Promise<ApiResponse<AuthSession>> | null = null
+
 export const authService = {
   async signup(payload: SignupPayload): Promise<ApiResponse<AuthResult>> {
     try {
@@ -20,6 +22,7 @@ export const authService = {
   },
 
   async verifyOtp(payload: VerifyOtpPayload): Promise<ApiResponse<AuthSession>> {
+    sessionRequest = null
     try {
       const body = await api.post<ApiDataBody<AuthSession>>('/api/auth/verify', payload)
       return ok(body.data)
@@ -38,6 +41,7 @@ export const authService = {
   },
 
   async login(payload: LoginPayload): Promise<ApiResponse<AuthSession>> {
+    sessionRequest = null
     try {
       const body = await api.post<ApiDataBody<AuthSession>>('/api/auth/login', payload)
       return ok(body.data)
@@ -47,17 +51,18 @@ export const authService = {
   },
 
   async session(): Promise<ApiResponse<AuthSession>> {
-    try {
-      const body = await api.get<ApiDataBody<AuthSession>>('/api/auth/session', {
-        cache: 'no-store',
+    if (typeof window === 'undefined') return requestSession()
+    if (!sessionRequest) {
+      const pending = requestSession().finally(() => {
+        if (sessionRequest === pending) sessionRequest = null
       })
-      return ok(body.data)
-    } catch (error) {
-      return fail(error, 'ไม่พบเซสชัน')
+      sessionRequest = pending
     }
+    return sessionRequest
   },
 
   async logout(): Promise<ApiResponse<null>> {
+    sessionRequest = null
     try {
       await api.post<ApiDataBody<null>>('/api/auth/logout')
       return ok(null)
@@ -74,4 +79,15 @@ export const authService = {
       return fail(error, 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
     }
   },
+}
+
+async function requestSession(): Promise<ApiResponse<AuthSession>> {
+    try {
+      const body = await api.get<ApiDataBody<AuthSession>>('/api/auth/session', {
+        cache: 'no-store',
+      })
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'ไม่พบเซสชัน')
+    }
 }

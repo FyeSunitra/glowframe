@@ -6,6 +6,7 @@ import { LogIn, Search, UserRound } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { getMenuText } from '@/lib/menuI18n';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { NotificationBell } from '@/components/common/NotificationBell';
 import { authService } from '@/services/auth';
 
 export function Topbar() {
@@ -69,6 +70,7 @@ export function Topbar() {
         )}
         {sessionChecked && isAuthenticated && (
           <>
+            <NotificationBell />
             <Link
               href="/account/profile"
               className="flex size-9 items-center justify-center rounded-full border border-gf-brown-300 bg-white text-gf-brown-800 no-underline"

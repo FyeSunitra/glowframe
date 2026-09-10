@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import {
   LayoutDashboard, Users, Camera, CalendarCheck, CreditCard, Wallet, Settings, LogOut,
   ShieldCheck, Flag, Tag, Package,
@@ -13,12 +14,20 @@ import {
   BadgeDollarSign,
   ImagePlus,
   Mail,
+  Menu,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useRouter } from 'next/navigation';
 import { getMenuText } from '@/lib/menuI18n';
 import { cn } from '@/lib/utils';
 import { authService } from '@/services/auth';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 const SECTIONS = [
   {
@@ -139,6 +148,7 @@ export function AdminSidebar() {
   const t = getMenuText(useAppStore((s) => s.locale));
   const router = useRouter();
   const active = activeKey(pathname);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleLogout() {
     await authService.logout();
@@ -147,48 +157,74 @@ export function AdminSidebar() {
     router.refresh();
   }
 
+  function renderNavigation(onNavigate?: () => void) {
+    return (
+      <>
+        {SECTIONS.map((section, si) => (
+          <div key={si}>
+            {section.labelKey && (
+              <div className="px-4 pb-1 pt-3 text-[10.5px] font-bold uppercase text-gf-muted [letter-spacing:0.8px]">
+                {t[section.labelKey]}
+              </div>
+            )}
+            {si > 0 && !section.labelKey && <div className="mx-1.5 my-1.5 h-px bg-gf-line" />}
+            {section.items.map(({ href, labelKey, icon: Icon }) => {
+              const isActive = active === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center gap-[11px] rounded-[14px] px-4 py-2.5 text-[14px] no-underline transition-colors',
+                    isActive
+                      ? 'bg-gf-brown-300 font-semibold text-gf-brown-900'
+                      : 'bg-transparent font-medium text-gf-brown-700 hover:bg-gf-pink-100',
+                  )}
+                >
+                  <Icon size={17} className="shrink-0" />
+                  <span>{t[labelKey]}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+        <div className="mx-1.5 my-1.5 h-px bg-gf-line" />
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            void handleLogout();
+          }}
+          className="flex items-center gap-[11px] rounded-[14px] border-0 bg-transparent px-4 py-2.5 text-left text-[14px] font-medium text-gf-brown-700 hover:bg-gf-pink-100"
+        >
+          <LogOut size={17} className="shrink-0" />
+          <span>{t.logout}</span>
+        </button>
+      </>
+    );
+  }
+
   return (
-    <nav className="flex max-h-[calc(100vh-60px)] w-[250px] shrink-0 flex-col gap-1 overflow-y-auto px-[18px] pb-20 pt-[18px] max-[900px]:max-h-none max-[900px]:w-full max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:overflow-y-visible max-[900px]:border-b max-[900px]:border-gf-line max-[900px]:px-3.5 max-[900px]:py-3 [&>div]:max-[900px]:flex [&>div]:max-[900px]:shrink-0 [&>div>div:first-child]:max-[900px]:hidden [&_a]:max-[900px]:whitespace-nowrap [&_button]:max-[900px]:whitespace-nowrap">
-      {SECTIONS.map((section, si) => (
-        <div key={si}>
-          {section.labelKey && (
-            <div className="text-[10.5px] font-bold text-gf-muted uppercase [letter-spacing:0.8px] [padding:10px_16px_4px]">
-              {t[section.labelKey]}
-            </div>
-          )}
-          {si > 0 && !section.labelKey && (
-            <div className="h-[1px] bg-gf-line [margin:6px_6px]" />
-          )}
-          {section.items.map(({ href, labelKey, icon: Icon }) => {
-            const isActive = active === href;
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-[11px] rounded-[14px] px-4 py-2.5 text-[14px] no-underline transition-colors',
-                  isActive
-                    ? 'bg-gf-brown-300 font-semibold text-gf-brown-900'
-                    : 'bg-transparent font-medium text-gf-brown-700',
-                )}
-              >
-                <Icon size={17} className="shrink-0" />
-                <span>{t[labelKey]}</span>
-              </Link>
-            );
-          })}
-        </div>
-      ))}
-
-      <div className="h-[1px] bg-gf-line [margin:6px_6px]" />
-
-      <button
-        onClick={() => void handleLogout()}
-        className="flex items-center gap-[11px] [padding:10px_16px] rounded-[14px] text-gf-brown-700 font-medium text-[14px] bg-transparent border-0 cursor-pointer text-left"
-      >
-        <LogOut size={17} className="shrink-0" />
-        <span>{t.logout}</span>
-      </button>
-    </nav>
+    <>
+      <div className="min-[901px]:hidden border-b border-gf-line bg-white px-4 py-2.5">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger aria-label="Open admin navigation" title="Navigation" className="flex size-10 items-center justify-center rounded-full border border-gf-brown-300 bg-white text-gf-brown-800">
+            <Menu size={19} />
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[min(320px,calc(100vw-44px))] gap-0 bg-white p-0" showCloseButton>
+            <SheetHeader className="border-b border-gf-line px-5 py-5">
+              <SheetTitle className="text-lg font-bold text-gf-brown-900">{t.adminBrand}</SheetTitle>
+            </SheetHeader>
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
+              {renderNavigation(() => setMobileMenuOpen(false))}
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </div>
+      <nav className="hidden max-h-[calc(100vh-60px)] w-[250px] shrink-0 flex-col gap-1 overflow-y-auto px-[18px] pb-20 pt-[18px] min-[901px]:flex">
+        {renderNavigation()}
+      </nav>
+    </>
   );
 }

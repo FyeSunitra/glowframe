@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Bell, Search } from 'lucide-react';
+import { MessageSquare, Search } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useToast } from '@/hooks/useToast';
 import { getMenuText } from '@/lib/menuI18n';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { NotificationBell } from '@/components/common/NotificationBell';
 
 export function AdminTopbar() {
   const user = useAppStore((s) => s.user);
@@ -56,13 +57,7 @@ export function AdminTopbar() {
         >
           <MessageSquare size={18} />
         </button>
-        <button
-          onClick={() => showToast(t.noNotifications)}
-          className="w-[38px] h-[38px] rounded-full bg-gf-pink-100 border-0 flex items-center justify-center text-gf-brown-700 cursor-pointer"
-          title={t.notifications}
-        >
-          <Bell size={18} />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

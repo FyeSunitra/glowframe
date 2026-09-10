@@ -65,6 +65,18 @@ export async function PATCH(
     if (action === 'reject' && !reason) {
       return NextResponse.json({ error: 'A rejection reason is required.' }, { status: 400 })
     }
+    if (action === 'restore') {
+      const archivedProduct = await prisma.product.findUnique({
+        where: { id: BigInt(id) },
+        select: { status: true },
+      })
+      if (!archivedProduct) {
+        return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+      }
+      if (archivedProduct.status !== ProductStatus.archived) {
+        return NextResponse.json({ error: 'Only archived products can be restored.' }, { status: 409 })
+      }
+    }
 
     const data =
       action === 'approve'
@@ -83,6 +95,13 @@ export async function PATCH(
             }
           : action === 'archive'
             ? { status: ProductStatus.archived }
+            : action === 'restore'
+              ? {
+                  status: ProductStatus.approved,
+                  rejectionReason: null,
+                  approvedBy: admin.user.id,
+                  approvedAt: new Date(),
+                }
             : editableFields(body)
 
     if (!Object.keys(data).length) {

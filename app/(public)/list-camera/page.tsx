@@ -284,7 +284,7 @@ function OwnerProductRow({
             onClick={() => onAction('hide')}
           />
         )}
-        {product.status === 'hidden' && (
+        {(product.status === 'hidden' || product.status === 'archived') && (
           <ActionButton
             icon={Power}
             label={labels.reopenListing}

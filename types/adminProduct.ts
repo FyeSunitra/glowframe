@@ -14,7 +14,6 @@ export interface AdminProduct {
   price: number
   deposit: number
   color: string
-  rating: number
   bookingCount: number
   status: 'draft' | 'pending' | 'active' | 'rejected' | 'hidden' | 'archived'
   createdAt: string
@@ -52,6 +51,6 @@ export interface UpdateAdminProductPayload {
   extra?: string
   price?: number
   deposit?: number
-  action?: 'approve' | 'reject' | 'archive'
+  action?: 'approve' | 'reject' | 'archive' | 'restore'
   reason?: string
 }
