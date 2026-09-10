@@ -18,13 +18,14 @@ export interface PhotoboothPaymentRow {
   qr_expires_at: Date | null
   access_expires_at: Date | null
   paid_at: Date | null
+  completed_at: Date | null
 }
 
 export async function findPhotoboothPayment(id: bigint, guestSessionId: string) {
   const rows = await prisma.$queryRaw<PhotoboothPaymentRow[]>(Prisma.sql`
     SELECT "id", "frame_id", "guest_session_id", "reference_id", "beam_charge_id",
            "amount", "currency", "status", "failure_code", "qr_expires_at",
-           "access_expires_at", "paid_at"
+           "access_expires_at", "paid_at", "completed_at"
     FROM "photobooth_payments"
     WHERE "id" = ${id} AND "guest_session_id" = ${guestSessionId}::uuid
     LIMIT 1
@@ -36,7 +37,7 @@ export async function findPhotoboothPaymentByProvider(chargeId: string, referenc
   const rows = await prisma.$queryRaw<PhotoboothPaymentRow[]>(Prisma.sql`
     SELECT "id", "frame_id", "guest_session_id", "reference_id", "beam_charge_id",
            "amount", "currency", "status", "failure_code", "qr_expires_at",
-           "access_expires_at", "paid_at"
+           "access_expires_at", "paid_at", "completed_at"
     FROM "photobooth_payments"
     WHERE "beam_charge_id" = ${chargeId}
        OR (${referenceId ?? ''} <> '' AND "reference_id" = ${referenceId ?? ''})
@@ -67,5 +68,19 @@ export function serializePayment(payment: PhotoboothPaymentRow) {
     expiresAt: payment.qr_expires_at?.toISOString() ?? null,
     accessExpiresAt: payment.access_expires_at?.toISOString() ?? null,
     paidAt: payment.paid_at?.toISOString() ?? null,
+    completedAt: payment.completed_at?.toISOString() ?? null,
   }
+}
+
+export async function completePhotoboothPayment(id: bigint, guestSessionId: string) {
+  const rows = await prisma.$queryRaw<Array<{ completed_at: Date }>>(Prisma.sql`
+    UPDATE "photobooth_payments"
+    SET "completed_at" = NOW()
+    WHERE "id" = ${id}
+      AND "guest_session_id" = ${guestSessionId}::uuid
+      AND "status" = 'succeeded'
+      AND "completed_at" IS NULL
+    RETURNING "completed_at"
+  `)
+  return rows[0] ?? null
 }

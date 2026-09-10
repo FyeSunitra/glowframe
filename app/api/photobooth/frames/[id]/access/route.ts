@@ -34,6 +34,7 @@ export async function GET(
       payment &&
       payment.frame_id === frame.id &&
       payment.status === 'succeeded' &&
+      !payment.completed_at &&
       payment.access_expires_at &&
       payment.access_expires_at > new Date(),
     )
@@ -41,9 +42,10 @@ export async function GET(
       data: {
         allowed,
         requiresPayment: true,
+        completedAt: payment?.completed_at?.toISOString() ?? null,
         ...(payment ? { payment: serializePayment(payment) } : {}),
       },
-    }, { status: allowed ? 200 : 402 })
+    }, { status: allowed || payment?.completed_at ? 200 : 402 })
   } catch (error) {
     console.error('Failed to verify Photobooth frame access', error)
     return NextResponse.json({ error: 'Unable to verify frame access.' }, { status: 500 })

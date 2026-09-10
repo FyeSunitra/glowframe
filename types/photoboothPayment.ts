@@ -10,6 +10,7 @@ export interface PhotoboothPayment {
   expiresAt: string | null
   accessExpiresAt: string | null
   paidAt: string | null
+  completedAt: string | null
 }
 
 export interface PhotoboothQrPayment extends PhotoboothPayment {
@@ -20,4 +21,5 @@ export interface PhotoboothFrameAccess {
   allowed: boolean
   requiresPayment: boolean
   payment?: PhotoboothPayment
+  completedAt?: string | null
 }

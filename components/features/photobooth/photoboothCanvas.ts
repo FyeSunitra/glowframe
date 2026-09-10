@@ -211,6 +211,66 @@ function drawFrameComposition(
   context.drawImage(overlay, 0, 0, width, height)
 }
 
+export function drawLiveFrame(
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement,
+  captured: HTMLImageElement[],
+  shotIndex: number,
+  frame: PhotoboothFrame | undefined,
+  overlay: HTMLImageElement | null,
+  color: string,
+  style: PhotoboothFrameStyle,
+  count: number,
+  intermediate: HTMLCanvasElement,
+) {
+  const context = requiredContext(canvas)
+  const camera = requiredContext(intermediate)
+  camera.save()
+  camera.translate(960, 0)
+  camera.scale(-1, 1)
+  drawVideoCover(camera, video, 960, 720)
+  camera.restore()
+  const width = canvas.width
+  const height = canvas.height
+  context.clearRect(0, 0, width, height)
+  context.fillStyle = frame ? '#ffffff' : color
+  context.fillRect(0, 0, width, height)
+  const side = style === 'minimal' ? 28 : style === 'film' ? 76 : 52
+  const top = style === 'minimal' ? 28 : 48
+  const gap = style === 'minimal' ? 10 : 18
+  const footer = style === 'minimal' ? 72 : 92
+  const rows = Math.ceil(count / 2)
+  const pw = Math.floor((900 - side * 2 - gap) / 2)
+  const ph = Math.floor((1200 - top - footer - (rows - 1) * gap) / rows)
+  const slots = frame?.slots ?? Array.from({ length: count }, (_, index) => ({
+    x: (side + index % 2 * (pw + gap)) / 900,
+    y: (top + Math.floor(index / 2) * (ph + gap)) / 1200,
+    width: pw / 900, height: ph / 1200,
+  }))
+  slots.forEach((slot, index) => {
+    const x = Math.round(slot.x * width)
+    const y = Math.round(slot.y * height)
+    const w = Math.ceil(slot.width * width)
+    const h = Math.ceil(slot.height * height)
+    const live = index === shotIndex || slots.length === 1
+    const source = live ? intermediate : captured[index]
+    if (source) {
+      const sw = source.width
+      const sh = source.height
+      const scale = Math.max(w / sw, h / sh)
+      context.drawImage(source, (sw - w / scale) / 2, (sh - h / scale) / 2, w / scale, h / scale, x, y, w, h)
+    } else {
+      context.fillStyle = '#eee9e7'
+      context.fillRect(x, y, w, h)
+    }
+  })
+  if (overlay) context.drawImage(overlay, 0, 0, width, height)
+  if (!frame) {
+    if (style === 'film') drawFilmRails(context, width, height)
+    drawCaption(context, width, height, color, 'GlowFrame Photobooth')
+  }
+}
+
 function requiredContext(canvas: HTMLCanvasElement, readOften = false) {
   const context = canvas.getContext('2d', { willReadFrequently: readOften })
   if (!context) throw new Error('Canvas is unavailable.')

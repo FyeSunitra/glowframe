@@ -76,6 +76,17 @@ export const photoboothService = {
       return fail(error, 'Payment is required to use this frame.')
     }
   },
+
+  async completePayment(id: number): Promise<ApiResponse<{ completedAt: string }>> {
+    try {
+      const body = await api.post<ApiDataBody<{ completedAt: string }>>(
+        `/api/photobooth/payments/${id}/complete`,
+      )
+      return ok(body.data)
+    } catch (error) {
+      return fail(error, 'Unable to complete the Photobooth session.')
+    }
+  },
 }
 
 export const adminPhotoboothService = {

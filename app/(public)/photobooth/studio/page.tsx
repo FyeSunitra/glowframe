@@ -27,6 +27,7 @@ import { LoadingState } from '@/components/common/LoadingState'
 import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import {
   captureVideoFrame,
+  drawLiveFrame,
   createAnimatedGif,
   createAnimatedWebM,
   createFramedPhoto,
@@ -89,6 +90,8 @@ function PhotoboothStudio() {
   const [motionUrl, setMotionUrl] = useState<string | null>(null)
   const [isExportingGif, setIsExportingGif] = useState(false)
   const [gifExportError, setGifExportError] = useState<string | null>(null)
+  const [sessionCompleted, setSessionCompleted] = useState(false)
+  const [isCompletingSession, setIsCompletingSession] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isCameraReady, setIsCameraReady] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -126,6 +129,9 @@ function PhotoboothStudio() {
       : databaseFrame.frameCount
     : selectedPhotoCount
 
+  const isPaidSession = Boolean(databaseFrame && requiresPayment && paymentId)
+  const isSessionCompleted = sessionCompleted || Boolean(frameAccess?.completedAt)
+
   useEffect(() => {
     if (phase !== 'camera' || !videoRef.current || !streamRef.current) return
     videoRef.current.srcObject = streamRef.current
@@ -152,6 +158,7 @@ function PhotoboothStudio() {
   }, [motionUrl])
 
   async function openCamera() {
+    if (isSessionCompleted || isCompletingSession) return
     clearResults()
     setCameraError(null)
     setResultError(null)
@@ -249,6 +256,7 @@ function PhotoboothStudio() {
   }
 
   function retake() {
+    if (isSessionCompleted || isCompletingSession) return
     clearResults()
     setPhase('setup')
     setCapturedImages([])
@@ -272,10 +280,11 @@ function PhotoboothStudio() {
     try {
       const gifBlob = await createAnimatedGif(capturedImages)
       const url = URL.createObjectURL(gifBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'glowframe-photobooth.gif'
-      link.click()
+      if (!(await completeSession())) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      triggerDownload(url, 'glowframe-photobooth.gif')
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
     } catch (error) {
       console.error('Failed to export photobooth GIF', error)
@@ -283,6 +292,30 @@ function PhotoboothStudio() {
     } finally {
       setIsExportingGif(false)
     }
+  }
+
+  async function completeSession() {
+    if (sessionCompleted) return true
+    if (!isPaidSession) {
+      setSessionCompleted(true)
+      return true
+    }
+    if (isCompletingSession) return false
+
+    setIsCompletingSession(true)
+    const response = await photoboothService.completePayment(Number(paymentId))
+    setIsCompletingSession(false)
+    if (!response.success) {
+      setGifExportError(response.error)
+      return false
+    }
+    setSessionCompleted(true)
+    return true
+  }
+
+  async function downloadPhoto() {
+    if (!photoUrl || !(await completeSession())) return
+    triggerDownload(photoUrl, 'glowframe-photobooth.png')
   }
 
   const styleName = databaseFrame
@@ -301,7 +334,8 @@ function PhotoboothStudio() {
   if (databaseFrame && requiresPayment && isAccessLoading) {
     return <div className="py-24 text-center text-sm text-gf-muted">{t.accessChecking}</div>
   }
-  if (databaseFrame && requiresPayment && (isAccessError || !frameAccess?.allowed)) {
+  if (databaseFrame && requiresPayment && !sessionCompleted && (isAccessError || !frameAccess?.allowed)) {
+    if (frameAccess?.completedAt) return <PaymentSessionCompleted t={t} />
     return <PaymentAccessRequired t={t} />
   }
 
@@ -355,6 +389,12 @@ function PhotoboothStudio() {
             </button>
 
             <CameraPreviewStage
+              frame={databaseFrame}
+              frameColor={frameColor}
+              frameStyle={frameStyle}
+              photoCount={photoCount}
+              capturedImages={capturedImages}
+              shotIndex={shotIndex}
               t={t}
               videoRef={videoRef}
               countdown={countdown}
@@ -483,14 +523,10 @@ function PhotoboothStudio() {
                 </div>
 
                 <div className="space-y-3">
-                  {/* {motionUrl && (
-                    <DownloadLink href={motionUrl} fileName="glowframe-photobooth.webm">
-                      <Film />
-                      {t.downloadWebm}
-                    </DownloadLink>
-                  )} */}
+                  {sessionCompleted ? (
+                    <>
                   {photoUrl && (
-                    <DownloadLink href={photoUrl} fileName="glowframe-photobooth.png" secondary>
+                    <DownloadLink onClick={() => void downloadPhoto()} fileName="glowframe-photobooth.png" secondary>
                       <Download />
                       {t.downloadPhoto}
                     </DownloadLink>
@@ -507,10 +543,6 @@ function PhotoboothStudio() {
                   {gifExportError && (
                     <p className="m-0 text-center text-xs leading-5 text-red-600">{gifExportError}</p>
                   )}
-                  <Button className="w-full" variant="outline" onClick={retake}>
-                    <RefreshCcw />
-                    {t.retake}
-                  </Button>
                   <Link
                     href="/photobooth"
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-gf-brown-700 underline"
@@ -518,6 +550,20 @@ function PhotoboothStudio() {
                     <Images size={17} />
                     {t.backToFrames}
                   </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Button className="w-full" onClick={() => void completeSession()} disabled={isCompletingSession}>
+                        {isCompletingSession ? <LoaderCircle className="animate-spin" /> : <Check />}
+                        {isCompletingSession ? t.completingResult : t.confirmResult}
+                      </Button>
+                      <Button className="w-full" variant="outline" onClick={retake} disabled={isCompletingSession}>
+                        <RefreshCcw />
+                        {t.retake}
+                      </Button>
+                      {gifExportError && <p role="alert" className="m-0 text-sm text-red-600">{gifExportError}</p>}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -529,6 +575,7 @@ function PhotoboothStudio() {
 }
 
 function CameraPreviewStage({
+  frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex,
   t,
   videoRef,
   countdown,
@@ -536,6 +583,12 @@ function CameraPreviewStage({
   isCameraReady,
   onCameraReady,
 }: {
+  frame?: PhotoboothFrame
+  frameColor: string
+  frameStyle: PhotoboothFrameStyle
+  photoCount: number
+  capturedImages: string[]
+  shotIndex: number
   t: ReturnType<typeof getPageText<'photobooth'>>
   videoRef: React.RefObject<HTMLVideoElement | null>
   countdown: number | null
@@ -543,17 +596,50 @@ function CameraPreviewStage({
   isCameraReady: boolean
   onCameraReady: () => void
 }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    if (!canvas || !video || !isCameraReady) return
+    let stopped = false
+    let animation = 0
+    const intermediate = document.createElement('canvas')
+    intermediate.width = 960
+    intermediate.height = 720
+    const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new window.Image()
+      image.onload = () => resolve(image)
+      image.onerror = reject
+      image.src = src
+    })
+    void Promise.all([
+      Promise.all(capturedImages.map(load)),
+      frame ? load(frame.overlayUrl) : Promise.resolve(null),
+    ]).then(([captured, overlay]) => {
+      if (stopped) return
+      const render = () => {
+        if (stopped) return
+        drawLiveFrame(canvas, video, captured, shotIndex, frame, overlay, frameColor, frameStyle, photoCount, intermediate)
+        animation = requestAnimationFrame(render)
+      }
+      render()
+    }).catch(error => console.error('Unable to render camera frame', error))
+    return () => { stopped = true; cancelAnimationFrame(animation) }
+  }, [frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex, isCameraReady, videoRef])
+  const width = frame?.canvasWidth ?? 900
+  const height = frame?.canvasHeight ?? 1200
+  const scale = Math.min(1, 1200 / Math.max(width, height))
   return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-[920px] overflow-hidden rounded-[8px] bg-gf-brown-900 shadow-[var(--gf-shadow)]">
+    <div className="relative mx-auto w-full overflow-hidden rounded-[8px] bg-white" style={{ aspectRatio: `${width}/${height}`, maxWidth: `min(920px, calc(62svh * ${width / height}))` }}>
       <video
         ref={videoRef}
         autoPlay
         muted
         playsInline
         onLoadedMetadata={onCameraReady}
-        className="h-full w-full -scale-x-100 object-cover"
+        className="pointer-events-none absolute size-px opacity-0"
       />
-      <div className="pointer-events-none absolute inset-4 border border-white/35 sm:inset-5" />
+      <canvas ref={canvasRef} width={Math.round(width * scale)} height={Math.round(height * scale)} className="block h-full w-full" />
       <CameraStageFeedback
         t={t}
         countdown={countdown}
@@ -617,6 +703,33 @@ function PaymentAccessRequired({
       >
         <ArrowLeft size={17} />
         {t.backToPayment}
+      </Link>
+    </section>
+  )
+}
+
+function PaymentSessionCompleted({
+  t,
+}: {
+  t: ReturnType<typeof getPageText<'photobooth'>>
+}) {
+  return (
+    <section className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
+      <span className="flex size-14 items-center justify-center rounded-full bg-gf-pink-100 text-gf-brown-800">
+        <Check size={25} />
+      </span>
+      <h1 className="mb-0 mt-5 text-xl font-bold text-gf-brown-900 sm:text-2xl">
+        {t.sessionCompletedTitle}
+      </h1>
+      <p className="mb-0 mt-2 max-w-md text-sm leading-6 text-gf-muted">
+        {t.sessionCompletedDescription}
+      </p>
+      <Link
+        href="/photobooth"
+        className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-gf-pink-500 px-6 text-sm font-semibold text-gf-brown-900 no-underline hover:bg-gf-pink-600"
+      >
+        <ArrowLeft size={17} />
+        {t.backToFrames}
       </Link>
     </section>
   )
@@ -955,19 +1068,27 @@ function CountdownStepper({
 
 function DownloadLink({
   href,
+  onClick,
   fileName,
   children,
   secondary = false,
 }: {
-  href: string
+  href?: string
+  onClick?: () => void
   fileName: string
   children: React.ReactNode
   secondary?: boolean
 }) {
   return (
     <a
-      href={href}
+      href={href ?? '#'}
       download={fileName}
+      onClick={(event) => {
+        if (onClick) {
+          event.preventDefault()
+          onClick()
+        }
+      }}
       className={cn(
         'flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold no-underline',
         secondary
@@ -978,6 +1099,13 @@ function DownloadLink({
       {children}
     </a>
   )
+}
+
+function triggerDownload(url: string, fileName: string) {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
 }
 
 function stopCamera(streamRef: React.MutableRefObject<MediaStream | null>) {
