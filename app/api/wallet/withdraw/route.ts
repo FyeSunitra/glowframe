@@ -5,6 +5,7 @@ import { setSessionCookies } from '@/lib/auth/server'
 import { getUserRequestContext } from '@/lib/auth/userRequest'
 import { BankAccountVerificationStatus, Prisma, WithdrawalStatus } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { notifyAdminsOfReviewRequest } from '@/lib/notifications/adminReviewNotificationService'
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,14 @@ export async function POST(request: NextRequest) {
       })
       return { withdrawal, bankAccount }
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+    await notifyAdminsOfReviewRequest({
+      kind: 'withdrawal',
+      recordId: result.withdrawal.id,
+      requesterName: auth.user.displayName,
+      reference: result.bankAccount.accountNumberMasked,
+      amount: `${Number(result.withdrawal.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} THB`,
+      linkUrl: '/admin/payouts',
+    })
     const response = NextResponse.json({ data: {
       id: Number(result.withdrawal.id), amount: Number(result.withdrawal.amount), status: result.withdrawal.status,
       bankAccount: serializeBankAccount(result.bankAccount), rejectionReason: null, reviewedAt: null,

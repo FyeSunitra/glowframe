@@ -34,6 +34,8 @@ export function NotificationBell() {
     queryFn: () => notificationService.list().then(unwrapApiResponse),
     enabled,
     staleTime: 20_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   })
   const markRead = useMutation({
@@ -61,14 +63,28 @@ export function NotificationBell() {
         .channel(`notifications:${userId}`)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}`,
-        }, () => {
+        }, (payload) => {
           void queryClient.invalidateQueries({ queryKey: INBOX_QUERY_KEY })
+          invalidateRelatedPageQuery(
+            queryClient,
+            typeof payload.new.link_url === 'string' ? payload.new.link_url : null,
+          )
         })
-        .subscribe()
+        .subscribe((status) => {
+          if (active && status === 'SUBSCRIBED') {
+            void queryClient.invalidateQueries({ queryKey: [...INBOX_QUERY_KEY, userId] })
+          }
+        })
     }
 
-    void subscribe()
-    const refresh = window.setInterval(() => void subscribe(), 45 * 60 * 1_000)
+    function refreshSubscription() {
+      void subscribe().catch((error) => {
+        console.error('Failed to connect notification updates', error)
+      })
+    }
+
+    refreshSubscription()
+    const refresh = window.setInterval(refreshSubscription, 45 * 60 * 1_000)
     return () => {
       active = false
       window.clearInterval(refresh)
@@ -81,13 +97,16 @@ export function NotificationBell() {
 
   function openNotification(item: AppNotification) {
     if (!item.readAt) markRead.mutate(item.id)
+    invalidateRelatedPageQuery(queryClient, item.linkUrl)
     if (item.linkUrl) router.push(item.linkUrl)
   }
 
   const relativeTime = useMemo(() => new Intl.RelativeTimeFormat(locale === 'th' ? 'th-TH' : 'en', { numeric: 'auto' }), [locale])
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => {
+      if (open && enabled) void inbox.refetch()
+    }}>
       <DropdownMenuTrigger
         aria-label={t.notifications}
         title={t.notifications}
@@ -118,6 +137,8 @@ export function NotificationBell() {
         <div className="max-h-[min(430px,calc(100vh-120px))] overflow-y-auto p-1.5">
           {inbox.isLoading ? (
             <div className="flex min-h-24 items-center justify-center text-gf-muted"><LoaderCircle className="animate-spin" size={19} /></div>
+          ) : inbox.isError ? (
+            <div role="alert" className="px-4 py-9 text-center text-sm text-gf-red">{t.notificationsLoadFailed}</div>
           ) : inbox.data?.items.length ? (
             inbox.data.items.map((item) => (
               <DropdownMenuItem
@@ -145,6 +166,26 @@ export function NotificationBell() {
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+function invalidateRelatedPageQuery(
+  queryClient: ReturnType<typeof useQueryClient>,
+  linkUrl: string | null,
+) {
+  if (linkUrl?.startsWith('/admin/trust/kyc')) {
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'trust', 'kyc'] })
+  } else if (linkUrl?.startsWith('/admin/products')) {
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] })
+  } else if (linkUrl?.startsWith('/admin/payouts')) {
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'payouts'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'payout-accounts'] })
+  } else if (linkUrl?.startsWith('/admin/bookings')) {
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'bookings'] })
+  } else if (linkUrl?.startsWith('/account/verify')) {
+    void queryClient.invalidateQueries({ queryKey: ['user', 'identity-verification'] })
+  } else if (linkUrl?.startsWith('/list-camera')) {
+    void queryClient.invalidateQueries({ queryKey: ['products', 'mine'] })
+  }
 }
 
 function formatRelativeTime(formatter: Intl.RelativeTimeFormat, value: string) {

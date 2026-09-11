@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
           },
           status: PolicyDocumentStatus.current,
         },
+        orderBy: { publishedAt: 'desc' },
         select: { id: true, version: true },
       }),
     ])

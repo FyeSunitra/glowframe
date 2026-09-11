@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarCheck, Camera, MoreHorizontal } from 'lucide-react'
 
@@ -29,6 +30,7 @@ import { useAppStore } from '@/store/appStore'
 import type { AdminBooking } from '@/types/adminBooking'
 
 export default function BookingsPage() {
+  const router = useRouter()
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'adminBookings')
   const bookingText = getPageText(locale, 'myRentals')
@@ -147,6 +149,13 @@ export default function BookingsPage() {
             }}>
               {t.view}
             </DropdownMenuItem>
+            {row.status === 'pendingPaymentReview' && row.payment?.status === 'pendingReview' && (
+              <DropdownMenuItem onClick={() => router.push(
+                `/admin/transactions?search=${encodeURIComponent(row.bookingNo)}&status=pendingReview`,
+              )}>
+                {t.reviewPayment}
+              </DropdownMenuItem>
+            )}
             {canCancel(row.status) && (
               <DropdownMenuItem variant="destructive" onClick={() => {
                 setSelected(row)

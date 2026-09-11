@@ -76,7 +76,7 @@ export async function PATCH(
       kind: 'identity_verification',
       recordId: record.id,
       userId: record.user.id,
-      status: action,
+      status: action === 'approve' ? 'approved' : 'rejected',
       displayName: record.user.displayName,
       detail: record.rejectionReason,
     })
@@ -84,7 +84,10 @@ export async function PATCH(
     const response = NextResponse.json({
       data: {
         id: record.id.toString(),
-        user: record.user,
+        user: {
+          displayName: record.user.displayName,
+          email: record.user.email,
+        },
         legalName: record.legalName,
         documentType: 'national_id',
         documentUrl: null,

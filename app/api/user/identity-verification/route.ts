@@ -11,6 +11,7 @@ import {
   syncSupabaseUser,
 } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
+import { notifyAdminsOfReviewRequest } from '@/lib/notifications/adminReviewNotificationService'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const ALLOWED_TYPES = new Map([
@@ -168,7 +169,21 @@ export async function POST(request: Request) {
         documentStoragePath: storagePath,
         status: VerificationStatus.pending,
       },
-      select: { status: true, createdAt: true, rejectionReason: true },
+      select: {
+        id: true,
+        legalName: true,
+        status: true,
+        createdAt: true,
+        rejectionReason: true,
+      },
+    })
+
+    await notifyAdminsOfReviewRequest({
+      kind: 'identity_verification',
+      recordId: verification.id,
+      requesterName: authenticated.user.displayName,
+      reference: verification.legalName,
+      linkUrl: '/admin/trust/kyc',
     })
 
     const response = NextResponse.json(

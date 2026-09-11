@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { publicMasterDataService } from '@/services/masterData'
 import { productService } from '@/services/products'
 import { addressService } from '@/services/address'
+import { identityVerificationService } from '@/services/identityVerification'
 import { useAppStore } from '@/store/appStore'
 import { useToast } from '@/hooks/useToast'
 import { unwrapApiResponse } from '@/lib/api'
@@ -67,6 +68,7 @@ function AddProductContent() {
   const editId = Number(searchParams.get('edit')) || null
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'listing')
+  const verificationText = getPageText(locale, 'verifyUpload')
   const { showToast } = useToast()
   const {
     form,
@@ -74,6 +76,7 @@ function AddProductContent() {
     resetAddProduct,
     addresses,
     setAddresses,
+    setUser,
     user,
   } = useAppStore((state) => ({
     form: state.addProduct,
@@ -81,6 +84,7 @@ function AddProductContent() {
     resetAddProduct: state.resetAddProduct,
     addresses: state.addresses,
     setAddresses: state.setAddresses,
+    setUser: state.setUser,
     user: state.user,
   }))
 
@@ -118,8 +122,16 @@ function AddProductContent() {
     queryFn: () => loadMasterItems(publicMasterDataService.accessories.list({ limit: 100 })),
   })
   const addressesQuery = useQuery({
-    queryKey: ['user', 'addresses', 'listing-form'],
+    queryKey: ['user', 'addresses', 'listing-form', user.id],
     queryFn: async () => unwrapApiResponse(await addressService.list()),
+    refetchOnMount: 'always',
+    staleTime: 0,
+  })
+  const identityVerificationQuery = useQuery({
+    queryKey: ['user', 'identity-verification', 'listing-form', user.id],
+    queryFn: async () => unwrapApiResponse(await identityVerificationService.get()),
+    refetchOnMount: 'always',
+    staleTime: 0,
   })
 
   const categories = (categoriesQuery.data ?? []) as Category[]
@@ -128,6 +140,11 @@ function AddProductContent() {
   const availableAddresses = addressesQuery.data ?? addresses
   const masterDataFailed =
     categoriesQuery.isError || brandsQuery.isError || accessoriesQuery.isError
+  const identityVerified = identityVerificationQuery.isSuccess && identityVerificationQuery.data.verified
+  const identityVerificationLoading = identityVerificationQuery.isFetching
+  const prerequisitesLoading = identityVerificationLoading || addressesQuery.isFetching
+  const hasAddress = addressesQuery.isSuccess && addressesQuery.data.length > 0
+  const canContinue = !prerequisitesLoading && identityVerified && !user.suspended && hasAddress
 
   useEffect(() => {
     const urls = previewUrls.current
@@ -139,6 +156,13 @@ function AddProductContent() {
   useEffect(() => {
     if (addressesQuery.data) setAddresses(addressesQuery.data)
   }, [addressesQuery.data, setAddresses])
+
+  useEffect(() => {
+    const verified = identityVerificationQuery.data?.verified
+    if (verified !== undefined && verified !== user.idVerified) {
+      setUser({ idVerified: verified })
+    }
+  }, [identityVerificationQuery.data?.verified, setUser, user.idVerified])
 
   useEffect(() => {
     const product = editQuery.data
@@ -182,8 +206,17 @@ function AddProductContent() {
   }, [editId, editQuery.data, setAddProduct])
 
   function verifyOwner() {
-    if (!user.idVerified || user.suspended) {
+    if (prerequisitesLoading) return false
+    if (identityVerificationQuery.isError || addressesQuery.isError) {
+      showToast(identityVerificationQuery.isError ? verificationText.loadFailed : t.loadAddressesFailed)
+      return false
+    }
+    if (!identityVerified || user.suspended) {
       showToast(t.identityRequired)
+      return false
+    }
+    if (!hasAddress) {
+      showToast(t.addressBeforeListing)
       return false
     }
     return true
@@ -425,7 +458,13 @@ function AddProductContent() {
 
       <StepIndicator steps={steps} currentStep={step} onSelect={setStep} />
 
-      {(!user.idVerified || user.suspended) && (
+      {prerequisitesLoading && <LoadingState label={t.checkingListingRequirements} compact />}
+
+      {!identityVerificationLoading && identityVerificationQuery.isError && (
+        <p role="alert" className="mb-5 text-sm text-gf-red">{verificationText.loadFailed}</p>
+      )}
+
+      {!identityVerificationLoading && identityVerificationQuery.isSuccess && (!identityVerified || user.suspended) && (
         <div className="mb-5 flex items-center gap-3 rounded-[18px] bg-gf-pink-100 p-[18px] shadow-[var(--gf-shadow-sm)]">
           <ShieldCheck size={22} className="shrink-0 text-gf-brown-700" />
           <div className="flex-1 text-[13.5px] leading-6 text-gf-brown-700">
@@ -437,6 +476,19 @@ function AddProductContent() {
             className={OUTLINE_BTN_CLASS}
           >
             {t.verifyNow}
+          </button>
+        </div>
+      )}
+
+      {!addressesQuery.isFetching && addressesQuery.isError && (
+        <p role="alert" className="mb-5 text-sm text-gf-red">{t.loadAddressesFailed}</p>
+      )}
+
+      {!addressesQuery.isFetching && addressesQuery.isSuccess && !hasAddress && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[8px] bg-gf-pink-100 p-4">
+          <p className="m-0 min-w-0 flex-1 text-sm text-gf-brown-700">{t.addressBeforeListing}</p>
+          <button type="button" onClick={() => router.push('/account/address')} className={OUTLINE_BTN_CLASS}>
+            {t.addAddress}
           </button>
         </div>
       )}
@@ -714,7 +766,7 @@ function AddProductContent() {
           )}
 
           <div className="mt-7 flex justify-end">
-            <button type="button" onClick={goToRentalOptions} className={DARK_BTN_CLASS}>
+            <button type="button" onClick={goToRentalOptions} disabled={!canContinue} className={cn(DARK_BTN_CLASS, 'disabled:cursor-not-allowed disabled:opacity-40')}>
               {t.next}
               <ArrowRight size={17} />
             </button>

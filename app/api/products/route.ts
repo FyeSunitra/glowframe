@@ -15,6 +15,7 @@ import {
   PRODUCT_VIDEO_MAX_BYTES,
 } from '@/lib/cloudinary'
 import { prisma } from '@/lib/prisma'
+import { notifyAdminsOfReviewRequest } from '@/lib/notifications/adminReviewNotificationService'
 import type { CreateProductPayload } from '@/types/product'
 import { publicProductInclude, serializeProduct } from './_utils'
 
@@ -182,6 +183,14 @@ export async function POST(req: NextRequest) {
         },
       },
       include: publicProductInclude,
+    })
+
+    await notifyAdminsOfReviewRequest({
+      kind: 'product_listing',
+      recordId: product.id,
+      requesterName: authenticated.user.displayName,
+      reference: product.title,
+      linkUrl: '/admin/products',
     })
 
     const response = NextResponse.json({ data: serializeProduct(product) }, { status: 201 })

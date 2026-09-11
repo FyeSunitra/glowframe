@@ -41,7 +41,7 @@ export async function notifyAccountReview(input: AccountReviewNotificationInput)
       },
       fallbackTitle: subject,
       fallbackBody: body,
-      linkUrl: input.kind === 'bank_account' ? '/account/wallet' : '/account/profile',
+      linkUrl: input.kind === 'bank_account' ? '/account/wallet' : '/account/verify',
       entityType: input.kind,
       entityId: input.recordId,
       dedupeKey: `${input.kind}:${input.recordId}:review:${input.status}`,

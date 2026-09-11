@@ -17,8 +17,7 @@ import { cn, money } from '@/lib/utils';
 import type { DayOption, DeliveryOption, Product } from '@/types';
 import { getPageText } from '@/lib/menuI18n';
 import { productService } from '@/services/products';
-
-const MIN_LEAD_DAYS = 5;
+import { bookingSettingsService } from '@/services/bookingSettings';
 
 function startOfToday(): Date {
   const date = new Date();
@@ -79,6 +78,12 @@ export default function BookingPage() {
     queryFn: async () => unwrapApiResponse(await productService.get(id)),
     enabled: !!id,
   });
+  const { data: bookingSettings } = useQuery({
+    queryKey: ['public', 'booking-settings'],
+    queryFn: async () => unwrapApiResponse(await bookingSettingsService.get()),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -104,9 +109,10 @@ export default function BookingPage() {
     return () => document.removeEventListener('mousedown', closeCalendar);
   }, []);
 
+  const minAdvanceDays = bookingSettings?.minAdvanceDays ?? 5;
   const minStartDate = useMemo(
-    () => addCalendarDays(startOfToday(), MIN_LEAD_DAYS),
-    [],
+    () => addCalendarDays(startOfToday(), minAdvanceDays),
+    [minAdvanceDays],
   );
   const unavailableDates = useMemo(
     () => new Set(product?.unavailableDates ?? []),
@@ -154,6 +160,8 @@ export default function BookingPage() {
     month: 'short',
     year: 'numeric',
   });
+  const bookingRule = t.bookingRule.replace('{days}', String(minAdvanceDays));
+  const dateRule = t.dateRule.replace('{days}', String(minAdvanceDays));
 
   function handleRangeChange(range: DateRange | undefined) {
     if (!range?.from) {
@@ -312,7 +320,7 @@ export default function BookingPage() {
                     />
                   )}
                   <div className="px-2 pb-2 text-[11.5px] leading-relaxed text-gf-muted">
-                    {t.dateRule}
+                    {dateRule}
                   </div>
                 </div>
               )}
@@ -401,7 +409,7 @@ export default function BookingPage() {
           </div>
 
           <div className="mt-3.5 rounded-[14px] bg-gf-pink-100 p-3.5 text-[13px] leading-relaxed text-gf-brown-700">
-            {t.bookingRule}
+            {bookingRule}
           </div>
 
           <button

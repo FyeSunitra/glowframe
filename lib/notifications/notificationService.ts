@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { after } from 'next/server'
 import { Prisma } from '@/lib/generated/prisma/client'
 import {
   createGlowframeEmailHtml,
@@ -199,19 +200,22 @@ function escapeRentalContext(context: RentalNotificationContext): RentalNotifica
 }
 
 /**
- * Best-effort delivery for use after a business transaction commits. Errors
- * are recorded on the notification and never change the already-saved status.
+ * Schedules best-effort delivery after the HTTP response so SMTP latency never
+ * delays the business action. Errors remain recorded on the notification.
  */
-export async function deliverNotificationAfterCommit(notification: { id: bigint } | null, created: boolean) {
+export function deliverNotificationAfterCommit(notification: { id: bigint } | null, created: boolean) {
   if (!created || !notification) return
-  try {
-    await deliverPendingNotificationEmail(notification.id)
-  } catch (error) {
-    console.error('Unexpected notification delivery failure', {
-      notificationId: notification.id.toString(),
-      error,
-    })
-  }
+  const notificationId = notification.id
+  after(async () => {
+    try {
+      await deliverPendingNotificationEmail(notificationId)
+    } catch (error) {
+      console.error('Unexpected notification delivery failure', {
+        notificationId: notificationId.toString(),
+        error,
+      })
+    }
+  })
 }
 
 /**

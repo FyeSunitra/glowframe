@@ -4,6 +4,7 @@ import { setSessionCookies } from '@/lib/auth/server'
 import { getCloudinary } from '@/lib/cloudinary'
 import { ProductStatus } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { notifyAdminsOfReviewRequest } from '@/lib/notifications/adminReviewNotificationService'
 import type {
   OwnerProductAction,
   UpdateOwnerProductPayload,
@@ -89,6 +90,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       } catch (error) {
         console.error('Failed to clean up replaced product media', error)
       }
+    }
+
+    if (
+      product.status === ProductStatus.pending &&
+      resolved.product.status !== ProductStatus.pending
+    ) {
+      await notifyAdminsOfReviewRequest({
+        kind: 'product_listing',
+        recordId: product.id,
+        requesterName: resolved.owner.user.displayName,
+        reference: product.title,
+        linkUrl: '/admin/products',
+        dedupeSuffix: product.updatedAt.toISOString(),
+      })
     }
 
     return withSession(

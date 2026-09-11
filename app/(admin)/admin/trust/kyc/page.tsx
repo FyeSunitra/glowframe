@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImageOff, MoreHorizontal, ShieldCheck, ZoomIn } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -35,12 +35,27 @@ import { getPageText } from '@/lib/menuI18n'
 import { adminKycService } from '@/services/adminKyc'
 import { useAppStore } from '@/store/appStore'
 import type { AdminKycRequest, AdminKycStatus } from '@/types/adminKyc'
+import { useSearchParams } from 'next/navigation'
 
 type RejectForm = { reason: string }
 
 export default function KYCPage() {
+  return (
+    <Suspense fallback={<KycPageFallback />}>
+      <KycPageContent />
+    </Suspense>
+  )
+}
+
+function KycPageFallback() {
+  return <div className="py-24 text-center text-sm text-gf-muted">Loading...</div>
+}
+
+function KycPageContent() {
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'adminKyc')
+  const searchParams = useSearchParams()
+  const notificationVerificationId = searchParams.get('verification')
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -50,14 +65,38 @@ export default function KYCPage() {
   const [imageOpen, setImageOpen] = useState(false)
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const openedNotificationId = useRef<string | null>(null)
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['admin', 'trust', 'kyc', search, statusFilter],
+    queryKey: [
+      'admin',
+      'trust',
+      'kyc',
+      search,
+      statusFilter,
+      notificationVerificationId,
+    ],
     queryFn: async () =>
       unwrapApiResponse(
         await adminKycService.list({ search, status: statusFilter }),
       ),
+    refetchOnMount: 'always',
   })
+
+  useEffect(() => {
+    if (!notificationVerificationId || openedNotificationId.current === notificationVerificationId) {
+      return
+    }
+    const request = items.find((item) => item.id === notificationVerificationId)
+    if (!request) return
+
+    openedNotificationId.current = notificationVerificationId
+    const timer = window.setTimeout(() => {
+      setSelected(request)
+      setDrawerOpen(true)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [items, notificationVerificationId])
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['admin', 'trust', 'kyc'] })

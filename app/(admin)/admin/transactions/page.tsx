@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CreditCard, MoreHorizontal, QrCode } from 'lucide-react'
@@ -8,6 +9,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { AdminPageHeader } from '@/components/admin/shared/AdminPageHeader'
+import { LoadingState } from '@/components/common/LoadingState'
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog'
 import { DataTable } from '@/components/admin/shared/DataTable'
 import { DetailDrawer } from '@/components/admin/shared/DetailDrawer'
@@ -36,14 +38,23 @@ import type { AdminTransaction } from '@/types/adminTransaction'
 type RejectForm = { reason: string }
 
 export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<TransactionsFallback />}>
+      <TransactionsPageContent />
+    </Suspense>
+  )
+}
+
+function TransactionsPageContent() {
+  const searchParams = useSearchParams()
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'adminTransactions')
   const paymentText = getPageText(locale, 'myRentals').paymentStatuses
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
   const [method, setMethod] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(() => searchParams.get('status') ?? '')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [selected, setSelected] = useState<AdminTransaction | null>(null)
@@ -408,6 +419,10 @@ export default function TransactionsPage() {
       </Dialog>
     </div>
   )
+}
+
+function TransactionsFallback() {
+  return <LoadingState label="Loading transactions..." />
 }
 
 function MethodCell({

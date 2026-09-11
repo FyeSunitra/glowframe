@@ -5,6 +5,7 @@ import { setSessionCookies } from '@/lib/auth/server'
 import { getUserRequestContext } from '@/lib/auth/userRequest'
 import { encryptBankAccountNumber } from '@/lib/bankAccountEncryption'
 import { prisma } from '@/lib/prisma'
+import { notifyAdminsOfReviewRequest } from '@/lib/notifications/adminReviewNotificationService'
 
 export async function GET() {
   try {
@@ -40,6 +41,13 @@ export async function POST(request: NextRequest) {
         accountNumberMasked: maskAccountNumber(accountNumber), isDefault: makeDefault,
         verificationStatus: 'pending', verifiedByAdmin: false,
       }, include: bankAccountInclude })
+    })
+    await notifyAdminsOfReviewRequest({
+      kind: 'bank_account',
+      recordId: account.id,
+      requesterName: auth.user.displayName,
+      reference: `${account.bankName} ${account.accountNumberMasked}`,
+      linkUrl: '/admin/payouts',
     })
     const response = NextResponse.json({ data: serializeBankAccount(account) }, { status: 201 })
     if (auth.refreshedSession) setSessionCookies(response, auth.refreshedSession)

@@ -5,6 +5,7 @@ import { setSessionCookies } from '@/lib/auth/server'
 import { getCloudinary } from '@/lib/cloudinary'
 import { ProductStatus } from '@/lib/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { createNotification } from '@/lib/notifications/notificationService'
 import { adminProductInclude, serializeAdminProduct } from '../_utils'
 
 export async function GET(
@@ -108,11 +109,47 @@ export async function PATCH(
       return NextResponse.json({ error: 'No valid changes were provided.' }, { status: 400 })
     }
 
-    const product = await prisma.product.update({
-      where: { id: BigInt(id) },
-      data,
-      include: adminProductInclude,
+    const product = await prisma.$transaction(async (client) => {
+      const previous = await client.product.findUniqueOrThrow({
+        where: { id: BigInt(id) },
+      })
+      const isReview = action === 'approve' || action === 'reject'
+      const reviewStatus = action === 'approve' ? ProductStatus.approved : ProductStatus.rejected
+      if (isReview && previous.status === reviewStatus) {
+        return client.product.findUniqueOrThrow({
+          where: { id: previous.id }, include: adminProductInclude,
+        })
+      }
+      // Claim the version being reviewed so concurrent reviews cannot both notify.
+      const changed = await client.product.updateMany({
+        where: { id: previous.id, updatedAt: previous.updatedAt, status: previous.status },
+        data,
+      })
+      if (changed.count !== 1) return null
+      const updated = await client.product.findUniqueOrThrow({
+        where: { id: previous.id }, include: adminProductInclude,
+      })
+      if (isReview) {
+        const approved = action === 'approve'
+        await createNotification(client, {
+          userId: updated.ownerId,
+          type: 'product_review_result',
+          title: approved ? 'สินค้าได้รับการอนุมัติแล้ว' : 'สินค้าไม่ผ่านการอนุมัติ',
+          body: approved
+            ? `สินค้า ${updated.title} ได้รับการอนุมัติและเปิดให้เช่าแล้ว`
+            : `สินค้า ${updated.title} ไม่ผ่านการอนุมัติ เหตุผล: ${reason} กรุณาแก้ไขและส่งตรวจใหม่`,
+          linkUrl: '/list-camera',
+          entityType: 'product',
+          entityId: updated.id,
+          dedupeKey: `product:${updated.id}:review:${previous.updatedAt.toISOString()}:${action}`,
+          emailStatus: 'skipped',
+        })
+      }
+      return updated
     })
+    if (!product) {
+      return NextResponse.json({ error: 'The product changed. Please refresh and try again.' }, { status: 409 })
+    }
     const response = NextResponse.json({ data: serializeAdminProduct(product) })
     if (admin.refreshedSession) {
       setSessionCookies(response, admin.refreshedSession)

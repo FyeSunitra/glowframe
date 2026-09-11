@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, FileText, LoaderCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,7 @@ export function RentalAgreementGateDialog({
 }: RentalAgreementGateDialogProps) {
   const locale = useAppStore((state) => state.locale)
   const t = getPageText(locale, 'catalog')
+  const queryClient = useQueryClient()
   const [accepted, setAccepted] = useState(false)
   const { data: policies = [], isLoading, isError } = useQuery({
     queryKey: ['policies', 'rental-agreement', locale],
@@ -43,7 +44,12 @@ export function RentalAgreementGateDialog({
       if (!agreement) throw new Error('Rental agreement is unavailable.')
       return unwrapApiResponse(await policyService.accept(agreement.id))
     },
-    onSuccess: onAccepted,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['policies', 'rental-agreement', 'acceptance'],
+      })
+      onAccepted()
+    },
   })
 
   function handleOpenChange(nextOpen: boolean) {
