@@ -7,7 +7,7 @@ import type {
 const MAX_PHOTO_OUTPUT_SIDE = 4096
 const MAX_GIF_OUTPUT_SIDE = 960
 
-export function captureVideoFrame(video: HTMLVideoElement) {
+export function captureVideoFrame(video: HTMLVideoElement, filter = 'none') {
   const canvas = document.createElement('canvas')
   canvas.width = 960
   canvas.height = 720
@@ -16,6 +16,7 @@ export function captureVideoFrame(video: HTMLVideoElement) {
   context.save()
   context.translate(canvas.width, 0)
   context.scale(-1, 1)
+  context.filter = filter
   drawVideoCover(context, video, canvas.width, canvas.height)
   context.restore()
 
@@ -222,12 +223,14 @@ export function drawLiveFrame(
   style: PhotoboothFrameStyle,
   count: number,
   intermediate: HTMLCanvasElement,
+  filter = 'none',
 ) {
   const context = requiredContext(canvas)
   const camera = requiredContext(intermediate)
   camera.save()
   camera.translate(960, 0)
   camera.scale(-1, 1)
+  camera.filter = filter
   drawVideoCover(camera, video, 960, 720)
   camera.restore()
   const width = canvas.width

@@ -26,6 +26,10 @@ import { Breadcrumb } from '@/components/common/Breadcrumb'
 import { LoadingState } from '@/components/common/LoadingState'
 import { FramePreview } from '@/components/features/photobooth/FramePreview'
 import {
+  PHOTO_FILTERS,
+  type PhotoboothPhotoFilterId,
+} from '@/components/features/photobooth/photoFilters'
+import {
   captureVideoFrame,
   drawLiveFrame,
   createAnimatedGif,
@@ -81,6 +85,7 @@ function PhotoboothStudio() {
   const [selectedPhotoCount, setPhotoCount] = useState<DefaultPhotoCount>(4)
   const [frameColor, setFrameColor] = useState(() => defaultFrameColor(frameStyle))
   const [countdownSeconds, setCountdownSeconds] = useState<CountdownSeconds>(8)
+  const [photoFilterId, setPhotoFilterId] = useState<PhotoboothPhotoFilterId>('original')
   const [noticeAccepted, setNoticeAccepted] = useState(false)
   const [resultView, setResultView] = useState<ResultView>('photo')
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -128,6 +133,7 @@ function PhotoboothStudio() {
       ? selectedPhotoCount
       : databaseFrame.frameCount
     : selectedPhotoCount
+  const selectedPhotoFilter = PHOTO_FILTERS.find((filter) => filter.id === photoFilterId) ?? PHOTO_FILTERS[0]
 
   const isPaidSession = Boolean(databaseFrame && requiresPayment && paymentId)
   const isSessionCompleted = sessionCompleted || Boolean(frameAccess?.completedAt)
@@ -210,7 +216,7 @@ function PhotoboothStudio() {
         if (captureSessionRef.current !== session) return
 
         setCountdown(null)
-        const image = captureVideoFrame(video)
+        const image = captureVideoFrame(video, selectedPhotoFilter.canvasFilter)
         shots.push(image)
         setCapturedImages([...shots])
         setFlash(true)
@@ -392,6 +398,7 @@ function PhotoboothStudio() {
               frame={databaseFrame}
               frameColor={frameColor}
               frameStyle={frameStyle}
+              filter={selectedPhotoFilter.canvasFilter}
               photoCount={photoCount}
               capturedImages={capturedImages}
               shotIndex={shotIndex}
@@ -401,6 +408,13 @@ function PhotoboothStudio() {
               flash={flash}
               isCameraReady={isCameraReady}
               onCameraReady={() => setIsCameraReady(true)}
+            />
+
+            <PhotoFilterCarousel
+              selectedFilterId={photoFilterId}
+              disabled={isCapturing}
+              t={t}
+              onChange={setPhotoFilterId}
             />
 
             <div className="mt-4 flex items-center justify-center sm:mt-5">
@@ -576,6 +590,7 @@ function PhotoboothStudio() {
 
 function CameraPreviewStage({
   frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex,
+  filter,
   t,
   videoRef,
   countdown,
@@ -586,6 +601,7 @@ function CameraPreviewStage({
   frame?: PhotoboothFrame
   frameColor: string
   frameStyle: PhotoboothFrameStyle
+  filter: string
   photoCount: number
   capturedImages: string[]
   shotIndex: number
@@ -619,13 +635,13 @@ function CameraPreviewStage({
       if (stopped) return
       const render = () => {
         if (stopped) return
-        drawLiveFrame(canvas, video, captured, shotIndex, frame, overlay, frameColor, frameStyle, photoCount, intermediate)
+        drawLiveFrame(canvas, video, captured, shotIndex, frame, overlay, frameColor, frameStyle, photoCount, intermediate, filter)
         animation = requestAnimationFrame(render)
       }
       render()
     }).catch(error => console.error('Unable to render camera frame', error))
     return () => { stopped = true; cancelAnimationFrame(animation) }
-  }, [frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex, isCameraReady, videoRef])
+  }, [frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex, isCameraReady, videoRef, filter])
   const width = frame?.canvasWidth ?? 900
   const height = frame?.canvasHeight ?? 1200
   const scale = Math.min(1, 1200 / Math.max(width, height))
@@ -647,6 +663,67 @@ function CameraPreviewStage({
         isCameraReady={isCameraReady}
       />
     </div>
+  )
+}
+
+function PhotoFilterCarousel({
+  selectedFilterId,
+  disabled,
+  t,
+  onChange,
+}: {
+  selectedFilterId: PhotoboothPhotoFilterId
+  disabled: boolean
+  t: ReturnType<typeof getPageText<'photobooth'>>
+  onChange: (filterId: PhotoboothPhotoFilterId) => void
+}) {
+  const filterNames: Record<PhotoboothPhotoFilterId, string> = {
+    original: t.filterOriginal,
+    warm: t.filterWarm,
+    cool: t.filterCool,
+    vintage: t.filterVintage,
+    blush: t.filterBlush,
+    mono: t.filterMono,
+  }
+
+  return (
+    <section aria-label={t.photoFilter} className="mt-4 min-w-0 sm:mt-5">
+      <div className="mb-2 flex items-center justify-between gap-4 px-0.5">
+        <h2 className="m-0 text-sm font-bold text-gf-brown-900">{t.photoFilter}</h2>
+        <span className="text-xs text-gf-muted">{t.filterHint}</span>
+      </div>
+      <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] sm:gap-3">
+        {PHOTO_FILTERS.map((filter) => {
+          const selected = filter.id === selectedFilterId
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(filter.id)}
+              aria-pressed={selected}
+              className={cn(
+                'w-[92px] shrink-0 snap-start rounded-[8px] border p-1.5 text-left transition-[border-color,background-color,transform] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gf-pink-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:w-[104px]',
+                selected
+                  ? 'border-gf-brown-800 bg-gf-pink-100'
+                  : 'border-gf-line bg-white hover:border-gf-pink-400',
+              )}
+            >
+              <span
+                className="relative block aspect-[4/3] overflow-hidden rounded-[5px]"
+                style={{ background: filter.previewGradient }}
+              >
+                <span className="absolute inset-x-[23%] bottom-0 h-[72%] rounded-t-full bg-white/70" />
+                <span className="absolute left-1/2 top-[22%] size-[29%] -translate-x-1/2 rounded-full bg-white/85" />
+              </span>
+              <span className="mt-1.5 block truncate px-0.5 text-center text-xs font-semibold text-gf-brown-800">
+                {filterNames[filter.id]}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
