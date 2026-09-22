@@ -159,6 +159,10 @@ export async function POST(request: NextRequest) {
     const startDate = parseDate(body.startDate, 'startDate')
     const endDate = parseDate(body.endDate, 'endDate')
     const deliveryMethod = parseDeliveryMethod(body.deliveryMethod)
+    const deliveryAddressId = positiveBigInt(
+      body.deliveryAddressId,
+      'deliveryAddressId',
+    )
     const proofFileName = requiredString(proof.name, 'proofFileName')
     if (proofFileName.length > 255) {
       return NextResponse.json(
@@ -181,9 +185,9 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       )
     }
-    if (endDate < startDate) {
+    if (endDate <= startDate) {
       return NextResponse.json(
-        { error: 'End date must be on or after start date.' },
+        { error: 'The return date must be after the rental start date.' },
         { status: 400 },
       )
     }
@@ -235,6 +239,16 @@ export async function POST(request: NextRequest) {
         throw new BookingRequestError('You cannot rent your own product.', 409)
       }
 
+      const deliveryAddress = await transaction.userAddress.findFirst({
+        where: { id: deliveryAddressId, userId: context.user.id },
+      })
+      if (!deliveryAddress) {
+        throw new BookingRequestError(
+          'Select one of your saved delivery addresses before booking.',
+          409,
+        )
+      }
+
       const paymentAccount = await transaction.platformPaymentAccount.findFirst({
         where: {
           id: paymentAccountId,
@@ -262,7 +276,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const rentalDays = inclusiveDays(startDate, endDate)
+      const rentalDays = rentalDaysBetween(startDate, endDate)
       const rentalFee = product.pricePerDay.mul(rentalDays)
       const deliveryFee = new Prisma.Decimal(
         deliveryMethod === DeliveryMethod.shipping ? 60 : 0,
@@ -298,6 +312,9 @@ export async function POST(request: NextRequest) {
           platformFeeAmount,
           ownerReceivableAmount,
           totalAmount,
+          recipientName: deliveryAddress.recipientName,
+          recipientPhone: deliveryAddress.recipientPhone,
+          deliveryAddressSnapshot: formatAddress(deliveryAddress),
           pickupAddressSnapshot: formatAddress(product.pickupAddress),
           payments: {
             create: {
@@ -438,8 +455,8 @@ function requiredString(value: unknown, field: string) {
   return value.trim()
 }
 
-function inclusiveDays(startDate: Date, endDate: Date) {
-  return Math.floor((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1
+function rentalDaysBetween(startDate: Date, endDate: Date) {
+  return Math.floor((endDate.getTime() - startDate.getTime()) / 86_400_000)
 }
 
 function startOfUtcDay(date: Date) {

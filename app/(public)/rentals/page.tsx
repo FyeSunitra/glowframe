@@ -250,9 +250,9 @@ export function BookingStatusBadge({
   status: RenterBookingStatus
   label: string
 }) {
-  const danger = ['paymentRejected', 'cancelled', 'expired', 'deliveryIssue'].includes(status)
+  const danger = ['paymentRejected', 'cancelled', 'expired', 'deliveryIssue', 'overdue'].includes(status)
   const success = status === 'completed'
-  const active = ['paymentApproved', 'active', 'readyForPickup', 'shipped'].includes(status)
+  const active = ['paymentApproved', 'active', 'overdue', 'readyForPickup', 'shipped'].includes(status)
 
   return (
     <span className={cn(

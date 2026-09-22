@@ -223,6 +223,10 @@ export function deliverNotificationAfterCommit(notification: { id: bigint } | nu
  * created it. A conditional update claims the item and prevents double sends.
  */
 export async function deliverPendingNotificationEmail(notificationId: bigint) {
+  // if (process.env.NOTIFICATIONS_EMAIL_ENABLED?.toLowerCase() === 'false') {
+  //   return { delivered: false, reason: 'email_disabled' as const }
+  // }
+
   const claimed = await prisma.notification.updateMany({
     where: { id: notificationId, emailStatus: EMAIL_STATUS.pending },
     data: {

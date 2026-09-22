@@ -411,6 +411,7 @@ function BookingFlow({
     readyForPickup: 3,
     shipped: 3,
     active: 4,
+    overdue: 4,
     returnPending: 5,
     completed: 6,
     cancelled: 0,

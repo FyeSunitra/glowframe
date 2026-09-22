@@ -3,11 +3,15 @@ import type {
   PhotoboothFrame,
   PhotoboothFrameStyle,
 } from '@/types/photobooth'
+import type { PhotoboothPhotoFilterId } from './photoFilters'
 
 const MAX_PHOTO_OUTPUT_SIDE = 4096
 const MAX_GIF_OUTPUT_SIDE = 960
 
-export function captureVideoFrame(video: HTMLVideoElement, filter = 'none') {
+export function captureVideoFrame(
+  video: HTMLVideoElement,
+  filter: PhotoboothPhotoFilterId = 'original',
+) {
   const canvas = document.createElement('canvas')
   canvas.width = 960
   canvas.height = 720
@@ -16,9 +20,9 @@ export function captureVideoFrame(video: HTMLVideoElement, filter = 'none') {
   context.save()
   context.translate(canvas.width, 0)
   context.scale(-1, 1)
-  context.filter = filter
   drawVideoCover(context, video, canvas.width, canvas.height)
   context.restore()
+  applyPhotoFilter(context, canvas.width, canvas.height, filter)
 
   // Keep the captured frame lossless until each final output format encodes it.
   return canvas.toDataURL('image/png')
@@ -223,16 +227,16 @@ export function drawLiveFrame(
   style: PhotoboothFrameStyle,
   count: number,
   intermediate: HTMLCanvasElement,
-  filter = 'none',
+  filter: PhotoboothPhotoFilterId = 'original',
 ) {
   const context = requiredContext(canvas)
-  const camera = requiredContext(intermediate)
+  const camera = requiredContext(intermediate, filter !== 'original')
   camera.save()
-  camera.translate(960, 0)
+  camera.translate(intermediate.width, 0)
   camera.scale(-1, 1)
-  camera.filter = filter
-  drawVideoCover(camera, video, 960, 720)
+  drawVideoCover(camera, video, intermediate.width, intermediate.height)
   camera.restore()
+  applyPhotoFilter(camera, intermediate.width, intermediate.height, filter)
   const width = canvas.width
   const height = canvas.height
   context.clearRect(0, 0, width, height)
@@ -278,6 +282,45 @@ function requiredContext(canvas: HTMLCanvasElement, readOften = false) {
   const context = canvas.getContext('2d', { willReadFrequently: readOften })
   if (!context) throw new Error('Canvas is unavailable.')
   return context
+}
+
+function applyPhotoFilter(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  filter: PhotoboothPhotoFilterId,
+) {
+  if (filter === 'original') return
+
+  const imageData = context.getImageData(0, 0, width, height)
+  const { data } = imageData
+  for (let index = 0; index < data.length; index += 4) {
+    const red = data[index]
+    const green = data[index + 1]
+    const blue = data[index + 2]
+
+    if (filter === 'mono') {
+      const luminance = red * 0.299 + green * 0.587 + blue * 0.114
+      const contrast = (luminance - 128) * 1.12 + 132
+      const value = clampColor(contrast)
+      data[index] = value
+      data[index + 1] = value
+      data[index + 2] = value
+    } else if (filter === 'warm') {
+      data[index] = clampColor(red * 1.1 + 10)
+      data[index + 1] = clampColor(green * 1.03 + 4)
+      data[index + 2] = clampColor(blue * 0.84)
+    } else if (filter === 'cool') {
+      data[index] = clampColor(red * 0.88)
+      data[index + 1] = clampColor(green * 1.01 + 2)
+      data[index + 2] = clampColor(blue * 1.12 + 8)
+    } else if (filter === 'vintage') {
+      data[index] = clampColor(red * 0.9 + green * 0.28 + blue * 0.1 + 9)
+      data[index + 1] = clampColor(red * 0.2 + green * 0.76 + blue * 0.08 + 5)
+      data[index + 2] = clampColor(red * 0.12 + green * 0.18 + blue * 0.54)
+    }
+  }
+  context.putImageData(imageData, 0, 0)
 }
 
 function ditherToPalette(

@@ -169,33 +169,47 @@ export default function RentalDetailPage() {
           </DetailSection>
         </div>
 
-        {(booking.delivery?.trackingNumber || booking.delivery?.readyForPickupAt) && (
+        {(booking.pickupAddress || booking.deliveryRecipient || booking.delivery?.trackingNumber || booking.delivery?.readyForPickupAt) && (
           <div className="border-t border-gf-line p-5 sm:p-7">
             <h2 className="mb-4 mt-0 flex items-center gap-2 text-[16px] font-bold text-gf-brown-900">
               <Truck size={18} />
               {t.deliveryTracking}
             </h2>
-            <DetailRow
-              label={t.shippingMethodLabel}
-              value={t.deliveryMethods[booking.delivery.method]}
-            />
-            {booking.delivery.providerName && (
-              <DetailRow label={t.provider} value={booking.delivery.providerName} />
+            {booking.pickupAddress && (
+              <DetailRow label={t.ownerReturnAddress} value={booking.pickupAddress} />
             )}
-            {booking.delivery.trackingNumber && (
-              <DetailRow label={t.trackingNumber} value={booking.delivery.trackingNumber} strong />
+            {booking.deliveryRecipient && (
+              <>
+                <DetailRow label={t.deliveryRecipient} value={booking.deliveryRecipient.name} />
+                <DetailRow label={t.deliveryRecipientPhone} value={booking.deliveryRecipient.phone} />
+                <DetailRow label={t.deliveryAddress} value={booking.deliveryRecipient.address} />
+              </>
             )}
-            {booking.delivery.readyForPickupAt && (
-              <DetailRow label={t.readyAt} value={dateFormatter.format(new Date(booking.delivery.readyForPickupAt))} />
-            )}
-            {booking.delivery.note && (
-              <DetailRow label={t.note} value={booking.delivery.note} />
-            )}
-            {booking.delivery.evidenceUrl && (
-              <EvidenceImage
-                url={booking.delivery.evidenceUrl}
-                alt={t.deliveryEvidence}
-              />
+            {booking.delivery && (
+              <>
+                <DetailRow
+                  label={t.shippingMethodLabel}
+                  value={t.deliveryMethods[booking.delivery.method]}
+                />
+                {booking.delivery.providerName && (
+                  <DetailRow label={t.provider} value={booking.delivery.providerName} />
+                )}
+                {booking.delivery.trackingNumber && (
+                  <DetailRow label={t.trackingNumber} value={booking.delivery.trackingNumber} strong />
+                )}
+                {booking.delivery.readyForPickupAt && (
+                  <DetailRow label={t.readyAt} value={dateFormatter.format(new Date(booking.delivery.readyForPickupAt))} />
+                )}
+                {booking.delivery.note && (
+                  <DetailRow label={t.note} value={booking.delivery.note} />
+                )}
+                {booking.delivery.evidenceUrl && (
+                  <EvidenceImage
+                    url={booking.delivery.evidenceUrl}
+                    alt={t.deliveryEvidence}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
@@ -337,7 +351,7 @@ function BookingActions({
     (booking.status === 'readyForPickup' || booking.status === 'shipped')
   const canRequestReturn =
     booking.viewerRole === 'renter' &&
-    booking.status === 'active'
+    booking.status === 'active' || booking.status === 'overdue'
   const hasAction =
     canStartPreparing ||
     canPrepareHandover ||
@@ -948,6 +962,7 @@ function statusProgress(status: RenterBookingStatus) {
     readyForPickup: 3,
     shipped: 3,
     active: 4,
+    overdue: 4,
     returnPending: 5,
     completed: 6,
     cancelled: 0,

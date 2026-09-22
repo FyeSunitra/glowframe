@@ -216,7 +216,7 @@ function PhotoboothStudio() {
         if (captureSessionRef.current !== session) return
 
         setCountdown(null)
-        const image = captureVideoFrame(video, selectedPhotoFilter.canvasFilter)
+        const image = captureVideoFrame(video, selectedPhotoFilter.id)
         shots.push(image)
         setCapturedImages([...shots])
         setFlash(true)
@@ -398,7 +398,7 @@ function PhotoboothStudio() {
               frame={databaseFrame}
               frameColor={frameColor}
               frameStyle={frameStyle}
-              filter={selectedPhotoFilter.canvasFilter}
+              filter={selectedPhotoFilter.id}
               photoCount={photoCount}
               capturedImages={capturedImages}
               shotIndex={shotIndex}
@@ -601,7 +601,7 @@ function CameraPreviewStage({
   frame?: PhotoboothFrame
   frameColor: string
   frameStyle: PhotoboothFrameStyle
-  filter: string
+  filter: PhotoboothPhotoFilterId
   photoCount: number
   capturedImages: string[]
   shotIndex: number
@@ -619,9 +619,10 @@ function CameraPreviewStage({
     if (!canvas || !video || !isCameraReady) return
     let stopped = false
     let animation = 0
+    let lastFilteredFrame = 0
     const intermediate = document.createElement('canvas')
-    intermediate.width = 960
-    intermediate.height = 720
+    intermediate.width = 640
+    intermediate.height = 480
     const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new window.Image()
       image.onload = () => resolve(image)
@@ -633,12 +634,15 @@ function CameraPreviewStage({
       frame ? load(frame.overlayUrl) : Promise.resolve(null),
     ]).then(([captured, overlay]) => {
       if (stopped) return
-      const render = () => {
+      const render = (timestamp: number) => {
         if (stopped) return
-        drawLiveFrame(canvas, video, captured, shotIndex, frame, overlay, frameColor, frameStyle, photoCount, intermediate, filter)
+        if (filter === 'original' || timestamp - lastFilteredFrame >= 50) {
+          drawLiveFrame(canvas, video, captured, shotIndex, frame, overlay, frameColor, frameStyle, photoCount, intermediate, filter)
+          lastFilteredFrame = timestamp
+        }
         animation = requestAnimationFrame(render)
       }
-      render()
+      render(performance.now())
     }).catch(error => console.error('Unable to render camera frame', error))
     return () => { stopped = true; cancelAnimationFrame(animation) }
   }, [frame, frameColor, frameStyle, photoCount, capturedImages, shotIndex, isCameraReady, videoRef, filter])
@@ -655,7 +659,12 @@ function CameraPreviewStage({
         onLoadedMetadata={onCameraReady}
         className="pointer-events-none absolute size-px opacity-0"
       />
-      <canvas ref={canvasRef} width={Math.round(width * scale)} height={Math.round(height * scale)} className="block h-full w-full" />
+      <canvas
+        ref={canvasRef}
+        width={Math.round(width * scale)}
+        height={Math.round(height * scale)}
+        className="block h-full w-full"
+      />
       <CameraStageFeedback
         t={t}
         countdown={countdown}
@@ -682,7 +691,6 @@ function PhotoFilterCarousel({
     warm: t.filterWarm,
     cool: t.filterCool,
     vintage: t.filterVintage,
-    blush: t.filterBlush,
     mono: t.filterMono,
   }
 

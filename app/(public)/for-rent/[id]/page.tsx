@@ -304,7 +304,7 @@ export default function ProductDetailPage() {
             </div>
           ) : (
             <ul className="m-0 grid list-none gap-3 p-0 text-sm leading-7 text-gf-brown-700 md:grid-cols-2">
-              {[t.policyStart, t.policyReturn, t.policyExtend, t.policyLate].map((policy) => (
+              {[t.policyStart, t.policyReturn, t.policyLate].map((policy) => (
                 <li key={policy} className="flex items-start gap-3">
                   <ShieldCheck size={18} className="mt-1 shrink-0 text-gf-pink-600" />
                   <span>{policy}</span>

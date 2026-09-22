@@ -309,7 +309,52 @@ async function main() {
     });
   }
 
-  console.log("Seed completed: banks, admin, sample user, master data, one approved product, and policy documents.");
+  const emailTemplates = [
+    {
+      key: "booking_status_update",
+      nameTh: "แจ้งเตือนสถานะรายการเช่า",
+      nameEn: "Rental status update",
+      subjectTh: "อัปเดตสถานะรายการเช่า {{booking_ref}}",
+      subjectEn: "Rental status update for {{booking_ref}}",
+      bodyTh: "<p>สวัสดี {{user_name}}</p><p>รายการเช่า <strong>{{booking_ref}}</strong> สำหรับ <strong>{{product_name}}</strong> มีการอัปเดตสถานะ</p><p>รายละเอียดเพิ่มเติมอยู่ในระบบ GlowFrame</p>",
+      bodyEn: "<p>Hello {{user_name}},</p><p>The rental <strong>{{booking_ref}}</strong> for <strong>{{product_name}}</strong> has been updated.</p><p>Please sign in to GlowFrame for more details.</p>",
+      recipientRoles: ["renter", "owner", "admin"],
+    },
+    {
+      key: "return_reminder",
+      nameTh: "แจ้งเตือนกำหนดคืนสินค้า",
+      nameEn: "Rental return reminder",
+      subjectTh: "รายการ {{booking_ref}} ครบกำหนดคืนพรุ่งนี้",
+      subjectEn: "Rental {{booking_ref}} is due tomorrow",
+      bodyTh: "<p>สวัสดี {{user_name}}</p><p>สินค้า <strong>{{product_name}}</strong> ในรายการ <strong>{{booking_ref}}</strong> มีกำหนดคืนในวันพรุ่งนี้</p><p>กรุณาดำเนินการคืนสินค้าผ่าน GlowFrame ภายในเวลาที่กำหนด</p>",
+      bodyEn: "<p>Hello {{user_name}},</p><p>Your rental item <strong>{{product_name}}</strong> for booking <strong>{{booking_ref}}</strong> is due tomorrow.</p><p>Please submit the return through GlowFrame by the required time.</p>",
+      recipientRoles: ["renter"],
+    },
+    {
+      key: "account_security_update",
+      nameTh: "แจ้งเตือนผลการตรวจสอบบัญชีและความปลอดภัย",
+      nameEn: "Account and security review update",
+      subjectTh: "{{verification_type}}{{verification_status}}",
+      subjectEn: "{{verification_type}} {{verification_status}}",
+      bodyTh: "<p>สวัสดี {{user_name}}</p><p>{{verification_type}}ของคุณมีผลเป็น: <strong>{{verification_status}}</strong></p><p>เหตุผลหรือรายละเอียดเพิ่มเติม: {{rejection_reason}}</p><p>กรุณาเข้าสู่ GlowFrame เพื่อตรวจสอบรายละเอียด</p>",
+      bodyEn: "<p>Hello {{user_name}},</p><p>Your <strong>{{verification_type}}</strong> review status is: <strong>{{verification_status}}</strong>.</p><p>Reason or additional details: {{rejection_reason}}</p><p>Please sign in to GlowFrame for more details.</p>",
+      recipientRoles: ["renter", "owner"],
+    },
+  ] as const;
+
+  for (const template of emailTemplates) {
+    await prisma.emailTemplate.upsert({
+      where: { key: template.key },
+      update: {},
+      create: {
+        ...template,
+        recipientRoles: [...template.recipientRoles],
+        isEnabled: true,
+      },
+    });
+  }
+
+  console.log("Seed completed: banks, admin, sample user, master data, one approved product, policy documents, and email templates.");
 }
 
 main()

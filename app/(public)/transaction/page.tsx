@@ -19,7 +19,9 @@ import { getPageText } from '@/lib/menuI18n';
 import { productService } from '@/services/products';
 import { paymentService } from '@/services/payment';
 import { bookingService } from '@/services/bookings';
+import { addressService } from '@/services/address';
 import type { PlatformReceivingAccount } from '@/types/payment';
+import type { Address } from '@/types/address';
 
 export default function TransactionPage() {
   const [policyType, setPolicyType] = useState<RequiredPolicyType | null>(null);
@@ -48,6 +50,12 @@ export default function TransactionPage() {
   >({
     queryKey: ['platform', 'payment-accounts'],
     queryFn: async () => unwrapApiResponse(await paymentService.listReceivingAccounts()),
+  });
+  const { data: addresses = [] } = useQuery<Address[]>({
+    queryKey: ['user', 'addresses', 'transaction', user.id],
+    queryFn: async () => unwrapApiResponse(await addressService.list()),
+    enabled: Boolean(user.id && user.id > 0),
+    staleTime: 0,
   });
 
   const createBookingMutation = useMutation({
@@ -87,11 +95,15 @@ export default function TransactionPage() {
   const selectedAccount = paymentAccounts.find(
     (account) => account.id === txnPay.paymentAccountId,
   );
+  const selectedDeliveryAddress = addresses.find(
+    (address) => address.id === booking.deliveryAddressId,
+  );
   const verificationBlocked = !user.emailVerified || user.suspended;
   const canSubmit = days > 0
     && !!booking.startDate
     && !!booking.endDate
     && !!selectedAccount
+    && !!selectedDeliveryAddress
     && txnPay.agree
     && !!proofFile
     && !verificationBlocked
@@ -109,6 +121,7 @@ export default function TransactionPage() {
       || !booking.endDate
       || !proofFile
       || !selectedAccount
+      || !selectedDeliveryAddress
     ) return;
 
     createBookingMutation.mutate({
@@ -117,6 +130,7 @@ export default function TransactionPage() {
       startDate: booking.startDate,
       endDate: booking.endDate,
       deliveryMethod: booking.delivery,
+      deliveryAddressId: selectedDeliveryAddress.id,
       proofFile,
     });
   }
@@ -246,6 +260,17 @@ export default function TransactionPage() {
 
         <div className="bg-white rounded-[22px] [box-shadow:var(--gf-shadow)] [padding:28px]">
           <div className="text-[19px] font-bold text-gf-brown-900 [margin-bottom:16px]">{t.summary}</div>
+          {selectedDeliveryAddress && (
+            <div className="mb-4 rounded-[14px] border border-gf-line bg-gf-pink-100/50 p-3.5 text-[13px] text-gf-brown-800">
+              <div className="font-bold text-gf-brown-900">{bookingText.deliveryAddressTitle}</div>
+              <div className="mt-1 font-medium">
+                {selectedDeliveryAddress.recipientName} · {selectedDeliveryAddress.recipientPhone}
+              </div>
+              <div className="mt-1 leading-relaxed text-gf-muted">
+                {formatDeliveryAddress(selectedDeliveryAddress)}
+              </div>
+            </div>
+          )}
           {[
             { label: `${t.rentalFee}: ${product.name} (${days} ${t.days})`, value: `${money(rentalPrice)} THB` },
             { label: `${t.deliveryFee} (${deliveryLabels[booking.delivery]})`, value: `${money(deliveryFee)} THB` },
@@ -282,6 +307,17 @@ export default function TransactionPage() {
       />
     </div>
   );
+}
+
+function formatDeliveryAddress(address: Address) {
+  return [
+    address.addressLine,
+    address.subdistrict,
+    address.district,
+    address.province,
+    address.postalCode,
+    address.landmark,
+  ].filter(Boolean).join(' ');
 }
 
 function PaymentAccountDetails({

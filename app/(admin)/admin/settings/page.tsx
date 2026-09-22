@@ -185,15 +185,11 @@ export default function SettingsPage() {
               <Field label={t.minAdvanceDays}>
                 <Input type="number" {...bookingForm.register('minAdvanceDays', { valueAsNumber: true })} />
               </Field>
-              <Field label={t.paymentDeadlineHours}>
-                <Input type="number" {...bookingForm.register('paymentDeadlineHours', { valueAsNumber: true })} />
-              </Field>
+              {/* Payment is reviewed from the payment flow; this setting is currently unused. */}
               <Field label={t.ownerPrepDays}>
                 <Input type="number" {...bookingForm.register('ownerPrepDays', { valueAsNumber: true })} />
               </Field>
-              <Field label={t.cancellationWindowHours}>
-                <Input type="number" {...bookingForm.register('cancellationWindowHours', { valueAsNumber: true })} />
-              </Field>
+              {/* Cancellation is currently handled manually by Admin; this window is not used. */}
             </div>
             <div className="flex justify-end">
               <Button type="submit" className="px-7">{t.save}</Button>
@@ -302,12 +298,7 @@ export default function SettingsPage() {
             </div>
 
             <div className={FORM_GRID_CLASS}>
-              <Field label={t.paymentReviewHours}>
-                <Input type="number" {...paymentForm.register('paymentReviewHours', { valueAsNumber: true })} />
-              </Field>
-              <Field label={t.payoutReviewDays}>
-                <Input type="number" {...paymentForm.register('payoutReviewDays', { valueAsNumber: true })} />
-              </Field>
+              {/* Review timing is currently handled manually by Admin; these settings are not used. */}
               <Field label={t.supportedBanks}>
                 <Input {...paymentForm.register('supportedBanks')} />
               </Field>

@@ -52,6 +52,7 @@ export function serializeRenterBooking(
     'readyForPickup',
     'shipped',
     'active',
+    'overdue',
     'returnPending',
     'completed',
     'deliveryIssue',
@@ -76,6 +77,17 @@ export function serializeRenterBooking(
       displayName: booking.renter.displayName,
       phone: ownerContactVisible ? booking.renter.phone : null,
     },
+    deliveryRecipient: viewerRole === 'owner' && ownerContactVisible &&
+      booking.recipientName && booking.recipientPhone && booking.deliveryAddressSnapshot
+      ? {
+          name: booking.recipientName,
+          phone: booking.recipientPhone,
+          address: booking.deliveryAddressSnapshot,
+        }
+      : null,
+    pickupAddress: viewerRole === 'renter' && ownerContactVisible
+      ? booking.pickupAddressSnapshot
+      : null,
     startDate: dateKey(booking.startDate),
     endDate: dateKey(booking.endDate),
     rentalDays: booking.rentalDays,

@@ -75,6 +75,7 @@ export interface BookingState {
   productId: number | null;
   dayOption: DayOption;
   delivery: DeliveryOption;
+  deliveryAddressId?: number;
   total?: number;
   days?: number;
   bookingId?: number;

@@ -79,7 +79,10 @@ export async function PATCH(
         }),
       ])
     } else if (action === 'request_return') {
-      if (booking.status !== BookingStatus.active) {
+      if (
+        booking.status !== BookingStatus.active &&
+        booking.status !== BookingStatus.overdue
+      ) {
         throw new BookingActionError(
           'Only active rentals can be returned.',
         )

@@ -50,13 +50,13 @@ export function AdminTopbar() {
         >
           {locale === 'th' ? 'EN' : 'TH'}
         </button>
-        <button
+        {/* <button
           onClick={() => showToast(t.noMessages)}
           className="w-[38px] h-[38px] rounded-full bg-gf-pink-100 border-0 flex items-center justify-center text-gf-brown-700 cursor-pointer"
           title={t.messages}
         >
           <MessageSquare size={18} />
-        </button>
+        </button> */}
         <NotificationBell />
       </div>
     </header>

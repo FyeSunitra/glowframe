@@ -7,6 +7,7 @@ export type RenterBookingStatus =
   | 'readyForPickup'
   | 'shipped'
   | 'active'
+  | 'overdue'
   | 'returnPending'
   | 'completed'
   | 'cancelled'
@@ -41,6 +42,12 @@ export interface RenterBooking {
     displayName: string
     phone: string | null
   }
+  deliveryRecipient: {
+    name: string
+    phone: string
+    address: string
+  } | null
+  pickupAddress: string | null
   startDate: string
   endDate: string
   rentalDays: number
@@ -113,6 +120,7 @@ export interface CreateBookingPayload {
   startDate: string
   endDate: string
   deliveryMethod: 'pickup' | 'grab' | 'post'
+  deliveryAddressId: number
   proofFile: File
 }
 

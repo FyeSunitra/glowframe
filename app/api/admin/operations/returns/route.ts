@@ -128,7 +128,7 @@ function returnStatusWhere(
     return { status: BookingStatus.active, endDate: { gte: today } }
   }
   if (status === 'overdue') {
-    return { status: BookingStatus.active, endDate: { lt: today } }
+    return { status: BookingStatus.overdue }
   }
   if (status === 'awaitingOwner') {
     return { status: BookingStatus.returnPending }
@@ -140,7 +140,7 @@ function returnStatusWhere(
     return { status: BookingStatus.disputed, rentalReturn: { isNot: null } }
   }
   return tab === 'pending'
-    ? { status: { in: [BookingStatus.active, BookingStatus.returnPending] } }
+    ? { status: { in: [BookingStatus.active, BookingStatus.overdue, BookingStatus.returnPending] } }
     : {
         status: { in: [BookingStatus.completed, BookingStatus.disputed] },
         rentalReturn: { isNot: null },
@@ -158,6 +158,7 @@ function displayStatus(
   if (booking.status === BookingStatus.active) {
     return booking.endDate < today ? 'overdue' : 'active'
   }
+  if (booking.status === BookingStatus.overdue) return 'overdue'
   if (booking.status === BookingStatus.returnPending) return 'awaitingOwner'
   if (booking.status === BookingStatus.disputed) {
     return booking.rentalReturn?.damageDescription

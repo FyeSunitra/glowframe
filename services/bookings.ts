@@ -23,6 +23,7 @@ export const bookingService = {
       formData.set('startDate', data.startDate)
       formData.set('endDate', data.endDate)
       formData.set('deliveryMethod', data.deliveryMethod)
+      formData.set('deliveryAddressId', String(data.deliveryAddressId))
       formData.set('proof', data.proofFile)
       const body = await api.post<ApiDataBody<RenterBooking>>(
         '/api/bookings',

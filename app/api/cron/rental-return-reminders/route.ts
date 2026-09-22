@@ -17,6 +17,11 @@ export async function GET(request: NextRequest) {
   const today = utcDayStart(new Date())
   const tomorrow = new Date(today)
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  await prisma.booking.updateMany({
+    where: { status: BookingStatus.active, endDate: { lt: today } },
+    data: { status: BookingStatus.overdue },
+  })
+
   const bookings = await prisma.booking.findMany({
     where: { status: BookingStatus.active, endDate: tomorrow },
     select: {
