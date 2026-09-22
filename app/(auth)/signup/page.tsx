@@ -38,7 +38,6 @@ export default function SignupPage() {
   }
 
   function handleGoogleSignup() {
-    if (!validateAgreement()) return;
     setIsStartingGoogle(true);
     window.location.assign('/api/auth/google?intent=signup');
   }

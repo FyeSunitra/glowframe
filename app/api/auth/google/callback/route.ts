@@ -45,12 +45,6 @@ export async function GET(request: NextRequest) {
       return response
     }
 
-    if (!existingUser && intent !== 'signup') {
-      clearSessionCookies(response)
-      response.headers.set('location', new URL('/signup', request.url).toString())
-      return response
-    }
-
     const databaseUser = await syncSupabaseUser(data.user)
     if (!existingUser) {
       await acceptRequiredSignupPolicies(databaseUser.id)
