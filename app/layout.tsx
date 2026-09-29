@@ -22,8 +22,16 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: 'GlowFrame — เช่ากล้อง ปล่อยเช่า ง่ายในที่เดียว',
-  description: 'แพลตฟอร์มเช่ากล้องที่เชื่อมเจ้าของกล้องกับคนที่อยากถ่ายรูป',
+  icons: {
+    icon: [{ url: '/images/glowframe-logo.jpg', type: 'image/jpeg' }],
+    shortcut: '/images/glowframe-logo.jpg',
+    apple: '/images/glowframe-logo.jpg',
+  },
+  openGraph: {
+    images: [{ url: '/images/glowframe-logo.jpg', type: 'image/jpeg' }],
+  },
+  title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
+  description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
 };
 
 export default function RootLayout({
