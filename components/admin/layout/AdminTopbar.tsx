@@ -21,7 +21,7 @@ export function AdminTopbar() {
       <Link href="/admin/dashboard" className="flex items-center gap-[10px] no-underline">
         <BrandLogo
           variant="compact"
-          src="/images/glowframe-logo.PNG"
+          src="/images/glowframe-logo.png"
           authBackground
           priority
         />

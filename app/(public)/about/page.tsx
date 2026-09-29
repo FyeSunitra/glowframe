@@ -15,7 +15,7 @@ export default function AboutPage() {
         <div className="flex justify-center lg:sticky lg:top-6">
           <BrandLogo
             variant="about"
-            src="/images/glowframe-logo.PNG"
+            src="/images/glowframe-logo.png"
             authBackground
           />
         </div>
