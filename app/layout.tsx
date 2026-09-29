@@ -22,27 +22,21 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://glowframe-rent.com'),
+  title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
+  description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
   icons: {
-    icon: [{ url: '/images/glowframe-logo.jpg', type: 'image/jpeg' }],
-    shortcut: '/images/glowframe-logo.jpg',
-    apple: '/images/glowframe-logo.jpg',
+    icon: [{ url: '/images/favicon.png', type: 'image/png' }],
+    shortcut: '/images/favicon.png',
+    apple: '/images/favicon.png',
   },
   openGraph: {
-    images: [{ url: '/images/glowframe-logo.jpg', type: 'image/jpeg' }],
+    title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
+    description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
+    url: 'https://glowframe-rent.com/',
+    siteName: 'GlowFrame',
+    images: [{ url: '/images/glowframe-logo.png', type: 'image/png' }],
   },
-  title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
-  description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
-};
-
-metadata.title = 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว';
-metadata.description = 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว';
-metadata.openGraph = {
-  ...metadata.openGraph,
-  title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
-  description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
-  url: 'https://glowframe-rent.com/',
-  siteName: 'GlowFrame',
-  images: [{ url: 'https://glowframe-rent.com/images/glowframe-logo.jpg', type: 'image/jpeg' }],
 };
 
 export default function RootLayout({
@@ -57,7 +51,6 @@ export default function RootLayout({
     >
       <body>
         <QueryProvider>{children}</QueryProvider>
-        {/* Global toast — driven by useToast hook */}
         <div
           id="gf-toast"
           aria-live="polite"
