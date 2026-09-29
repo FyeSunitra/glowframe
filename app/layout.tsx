@@ -34,6 +34,17 @@ export const metadata: Metadata = {
   description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
 };
 
+metadata.title = 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว';
+metadata.description = 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว';
+metadata.openGraph = {
+  ...metadata.openGraph,
+  title: 'GlowFrame - บริการถ่ายภาพ ครบจบในที่เดียว',
+  description: 'แพลตฟอร์มที่รวมบริการถ่ายภาพหลากหลายรูปแบบไว้ในที่เดียว',
+  url: 'https://glowframe-rent.com/',
+  siteName: 'GlowFrame',
+  images: [{ url: 'https://glowframe-rent.com/images/glowframe-logo.jpg', type: 'image/jpeg' }],
+};
+
 export default function RootLayout({
   children,
 }: {
