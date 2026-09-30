@@ -2,8 +2,6 @@
 
 import {
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   LoaderCircle,
   LockKeyhole,
@@ -45,6 +43,9 @@ export default function PhotoboothPage() {
     queryKey: ['photobooth-frames', 'public'],
     queryFn: async () => unwrapApiResponse(await photoboothService.list()),
   })
+  const paidFrames = frames.filter((frame) => (frame.price ?? 0) > 0)
+  const freeFrames = frames.filter((frame) => (frame.price ?? 0) <= 0)
+
   return (
     <div className="animate-fade-up">
       <Breadcrumb items={[t.breadcrumb]} />
@@ -61,15 +62,8 @@ export default function PhotoboothPage() {
       ) : (
         <FrameCarousel
           label={t.title}
-          previousLabel={t.previousFrame}
-          nextLabel={t.nextFrame}
         >
-          <DefaultFrameCard
-            name={t.classic}
-            actionLabel={t.chooseStyle}
-            onSelect={() => router.push('/photobooth/studio')}
-          />
-          {frames.map((frame) => (
+          {[...paidFrames, ...freeFrames].map((frame) => (
             <DatabaseFrameCard
               key={frame.id}
               frame={frame}
@@ -85,6 +79,11 @@ export default function PhotoboothPage() {
               }}
             />
           ))}
+          <DefaultFrameCard
+            name={t.classic}
+            actionLabel={t.chooseStyle}
+            onSelect={() => router.push('/photobooth/studio')}
+          />
         </FrameCarousel>
       )}
 
@@ -136,7 +135,7 @@ function DefaultFrameCard({
       onClick={handlePress}
       aria-label={name}
       aria-pressed={isDetailsOpen}
-      className="flex h-[420px] w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:w-[340px] lg:w-[360px]"
+      className="flex h-[calc(min(68vh,560px)-24px)] w-full shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-gf-pink-400"
     >
       <div className="relative aspect-[3/4] h-full max-w-full">
         <FramePreview
@@ -159,77 +158,17 @@ function DefaultFrameCard({
 function FrameCarousel({
   children,
   label,
-  previousLabel,
-  nextLabel,
 }: {
   children: ReactNode
   label: string
-  previousLabel: string
-  nextLabel: string
 }) {
-  const scrollerRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-
-  const updateControls = useCallback(() => {
-    const scroller = scrollerRef.current
-    if (!scroller) return
-
-    setCanScrollLeft(scroller.scrollLeft > 4)
-    setCanScrollRight(
-      scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 4,
-    )
-  }, [])
-
-  useEffect(() => {
-    const scroller = scrollerRef.current
-    if (!scroller) return
-
-    updateControls()
-    const resizeObserver = new ResizeObserver(updateControls)
-    resizeObserver.observe(scroller)
-    return () => resizeObserver.disconnect()
-  }, [updateControls])
-
-  const scroll = (direction: 'left' | 'right') => {
-    const scroller = scrollerRef.current
-    if (!scroller) return
-
-    scroller.scrollBy({
-      left: direction === 'left' ? -scroller.clientWidth * 0.8 : scroller.clientWidth * 0.8,
-      behavior: 'smooth',
-    })
-  }
-
   return (
-    <section className="relative px-1 sm:px-14" aria-label={label}>
-      <button
-        type="button"
-        title={previousLabel}
-        aria-label={previousLabel}
-        disabled={!canScrollLeft}
-        onClick={() => scroll('left')}
-        className="absolute left-0 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-gf-line bg-white text-gf-brown-800 shadow-[var(--gf-shadow)] transition-[background-color,color,opacity,transform] hover:scale-105 hover:bg-gf-pink-100 disabled:pointer-events-none disabled:opacity-30 sm:size-12"
-      >
-        <ChevronLeft size={22} />
-      </button>
+    <section className="mx-auto max-w-[440px] px-1" aria-label={label}>
       <div
-        ref={scrollerRef}
-        onScroll={updateControls}
-        className="flex snap-x snap-mandatory gap-5 overflow-x-auto px-12 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-1"
+        className="flex h-[min(68vh,560px)] snap-y snap-mandatory flex-col gap-5 overflow-y-auto overscroll-contain py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
-      <button
-        type="button"
-        title={nextLabel}
-        aria-label={nextLabel}
-        disabled={!canScrollRight}
-        onClick={() => scroll('right')}
-        className="absolute right-0 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-gf-line bg-white text-gf-brown-800 shadow-[var(--gf-shadow)] transition-[background-color,color,opacity,transform] hover:scale-105 hover:bg-gf-pink-100 disabled:pointer-events-none disabled:opacity-30 sm:size-12"
-      >
-        <ChevronRight size={22} />
-      </button>
     </section>
   )
 }
@@ -266,7 +205,7 @@ function DatabaseFrameCard({
       onClick={handlePress}
       aria-label={name}
       aria-pressed={isDetailsOpen}
-      className="flex h-[420px] w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-gf-pink-400 sm:w-[340px] lg:w-[360px]"
+      className="flex h-[calc(min(68vh,560px)-24px)] w-full shrink-0 snap-center items-center justify-center border-0 bg-transparent p-2 outline-none transition-transform duration-200 hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-gf-pink-400"
     >
       <div className="flex h-full w-full items-center justify-center">
         <div

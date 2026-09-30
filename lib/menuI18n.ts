@@ -163,6 +163,10 @@ export const adminPhotoboothFrameText = {
 export const pageText = {
   th: {
     home: {
+      photoboothEyebrow: '(สำหรับทุกคน)',
+      photoboothHeadline: 'อยากถ่ายรูปสนุก ๆ',
+      photoboothCta: 'ไป Photobooth',
+      photoboothSub: 'เลือกกรอบ แล้วถ่ายภาพของคุณได้ทันที',
       ownerEyebrow: '(สำหรับเจ้าของกล้อง)',
       ownerHeadline: 'มีกล้องอยู่แล้ว',
       ownerCta: 'ปล่อยเช่ากล้อง',
@@ -1741,6 +1745,10 @@ export const pageText = {
   },
   en: {
     home: {
+      photoboothEyebrow: '(For everyone)',
+      photoboothHeadline: 'want fun photos.',
+      photoboothCta: 'Go to Photobooth',
+      photoboothSub: 'Choose a frame and take your photos instantly',
       ownerEyebrow: '(Some people)',
       ownerHeadline: 'own cameras.',
       ownerCta: 'List Your Camera',
